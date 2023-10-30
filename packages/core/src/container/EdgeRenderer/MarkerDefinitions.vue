@@ -1,6 +1,9 @@
 <script lang="ts" setup>
+import { computed } from 'vue'
 import type { EdgeMarkerType, MarkerProps, MarkerType } from '../../types/edge'
-import Marker from './Marker.vue'
+import { useVueFlow } from '../../composables'
+import { getMarkerId } from '../../utils'
+import MarkerSymbols from './MarkerSymbols.vue'
 
 const { id: vueFlowId, edges, connectionLineOptions, defaultMarkerColor: defaultColor } = $(useVueFlow())
 
@@ -12,8 +15,11 @@ const markers = computed(() => {
     if (marker) {
       const markerId = getMarkerId(marker, vueFlowId)
       if (!ids.includes(markerId)) {
-        if (typeof marker === 'object') markers.push({ ...marker, id: markerId, color: marker.color || defaultColor })
-        else markers.push({ id: markerId, color: defaultColor, type: marker as MarkerType })
+        if (typeof marker === 'object') {
+          markers.push({ ...marker, id: markerId, color: marker.color || defaultColor })
+        } else {
+          markers.push({ id: markerId, color: defaultColor, type: marker as MarkerType })
+        }
         ids.push(markerId)
       }
     }
@@ -39,7 +45,7 @@ export default {
 
 <template>
   <defs>
-    <Marker
+    <MarkerSymbols
       v-for="marker of markers"
       :id="marker.id"
       :key="marker.id"

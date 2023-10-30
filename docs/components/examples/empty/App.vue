@@ -1,13 +1,13 @@
 <script setup>
-import { Panel, PanelPosition, VueFlow, useVueFlow } from '@vue-flow/core'
+import { Panel, VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background, BackgroundVariant } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 
-const { nodes, addNodes, edges, addEdges, onConnect, onPaneReady, onNodeDragStop, dimensions } = useVueFlow()
+const { nodes, addNodes, addEdges, onConnect, dimensions } = useVueFlow()
 
-onConnect((params) => addEdges([params]))
+onConnect((params) => addEdges(params))
 
-const addRandomNode = () => {
+function addRandomNode() {
   const nodeId = (nodes.value.length + 1).toString()
 
   const newNode = {
@@ -26,7 +26,7 @@ const addRandomNode = () => {
 
     <Background :variant="BackgroundVariant.Lines" />
 
-    <Panel :position="PanelPosition.TopRight">
+    <Panel position="top-right">
       <button type="button" @click="addRandomNode">add node</button>
     </Panel>
   </VueFlow>

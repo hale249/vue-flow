@@ -34,7 +34,7 @@ export interface GraphBoundingBox {
  * @param roundTo If the coordinates should be rounded to this nearest integer
  * @returns Graph and nodes bounding boxes.
  */
-export const getBoundingBoxes = (storeNodes: GraphNode[], nodePadding = 0, graphPadding = 0, roundTo = 0) => {
+export function getBoundingBoxes(storeNodes: GraphNode[], nodePadding = 0, graphPadding = 0, roundTo = 0) {
   // Guarantee that the given parameters are positive integers
   nodePadding = Math.max(Math.round(nodePadding), 0)
   graphPadding = Math.max(Math.round(graphPadding), 0)
@@ -89,10 +89,18 @@ export const getBoundingBoxes = (storeNodes: GraphNode[], nodePadding = 0, graph
       bottomRight.y = roundUp(bottomRight.y, roundTo)
     }
 
-    if (topLeft.y < yMin) yMin = topLeft.y
-    if (topLeft.x < xMin) xMin = topLeft.x
-    if (bottomRight.y > yMax) yMax = bottomRight.y
-    if (bottomRight.x > xMax) xMax = bottomRight.x
+    if (topLeft.y < yMin) {
+      yMin = topLeft.y
+    }
+    if (topLeft.x < xMin) {
+      xMin = topLeft.x
+    }
+    if (bottomRight.y > yMax) {
+      yMax = bottomRight.y
+    }
+    if (bottomRight.x > xMax) {
+      xMax = bottomRight.x
+    }
 
     return {
       id: node.id,

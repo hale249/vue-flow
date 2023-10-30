@@ -1,5 +1,7 @@
 <script lang="ts" setup>
 import type { D3ZoomEvent } from 'd3-zoom'
+import { useVModel } from '@vueuse/core'
+import { onMounted, onUnmounted, provide, ref, useSlots } from 'vue'
 import Viewport from '../Viewport/Viewport.vue'
 import A11yDescriptions from '../../components/A11y/A11yDescriptions.vue'
 import type { FlowElements, FlowProps } from '../../types/flow'
@@ -17,6 +19,10 @@ import type {
   ViewportTransform,
   VueFlowStore,
 } from '../../types'
+import type { VueFlowError } from '../../utils/errors'
+import { useVueFlow, useWatchProps } from '../../composables'
+import { useHooks } from '../../store'
+import { Slots } from '../../context'
 
 const props = withDefaults(defineProps<FlowProps>(), {
   snapToGrid: undefined,
@@ -45,6 +51,12 @@ const props = withDefaults(defineProps<FlowProps>(), {
   nodesFocusable: undefined,
   autoPanOnConnect: undefined,
   autoPanOnNodeDrag: undefined,
+  isValidConnection: undefined,
+  deleteKeyCode: undefined,
+  selectionKeyCode: undefined,
+  multiSelectionKeyCode: undefined,
+  panActivationKeyCode: undefined,
+  zoomActivationKeyCode: undefined,
 })
 
 const emit = defineEmits<{
@@ -73,6 +85,13 @@ const emit = defineEmits<{
     } & OnConnectStartParams,
   ): void
   (event: 'connectEnd', connectionEvent?: MouseEvent): void
+  (
+    event: 'clickConnectStart',
+    connectionEvent: {
+      event?: MouseEvent
+    } & OnConnectStartParams,
+  ): void
+  (event: 'clickConnectEnd', connectionEvent?: MouseEvent): void
   (event: 'moveStart', moveEvent: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }): void
   (event: 'move', moveEvent: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }): void
   (event: 'moveEnd', moveEvent: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }): void
@@ -102,6 +121,7 @@ const emit = defineEmits<{
   (event: 'edgeUpdate', edgeUpdateEvent: EdgeUpdateEvent): void
   (event: 'edgeUpdateEnd', edgeMouseEvent: EdgeMouseEvent): void
   (event: 'updateNodeInternals'): void
+  (event: 'error', error: VueFlowError): void
 
   /** v-model event definitions */
   (event: 'update:modelValue', value: FlowElements): void
@@ -113,19 +133,21 @@ const modelValue = useVModel(props, 'modelValue', emit)
 const modelNodes = useVModel(props, 'nodes', emit)
 const modelEdges = useVModel(props, 'edges', emit)
 
-const { vueFlowRef, id, hooks, getNodeTypes, getEdgeTypes, $reset, ...rest } = useVueFlow(props)
+const { vueFlowRef, hooks, getNodeTypes, getEdgeTypes, ...rest } = useVueFlow(props)
 
-const dispose = useWatch({ modelValue, nodes: modelNodes, edges: modelEdges }, props, {
+const dispose = useWatchProps({ modelValue, nodes: modelNodes, edges: modelEdges }, props, {
   vueFlowRef,
-  id,
   hooks,
   getNodeTypes,
   getEdgeTypes,
-  $reset,
   ...rest,
 })
 
+useHooks(emit, hooks)
+
 const el = ref<HTMLDivElement>()
+
+provide(Slots, useSlots())
 
 onUnmounted(() => {
   dispose()
@@ -135,17 +157,11 @@ onMounted(() => {
   vueFlowRef.value = el.value!
 })
 
-useHooks(emit, hooks)
-
-provide(Slots, useSlots())
-
 defineExpose<VueFlowStore>({
   vueFlowRef,
-  id,
   hooks,
   getNodeTypes,
   getEdgeTypes,
-  $reset,
   ...rest,
 })
 </script>

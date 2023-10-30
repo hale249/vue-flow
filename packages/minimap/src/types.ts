@@ -38,13 +38,18 @@ export interface MiniMapProps {
   height?: number
 
   ariaLabel?: string | null
+  /** Enable inverse panning, i.e. drag minimap to move viewport in opposite direction */
+  inversePan?: boolean
+  /** Specify zoom step */
+  zoomStep?: number
+  /** Specify minimap scale */
+  offsetScale?: number
 }
 
 /** these props are passed to mini map node slots */
 export interface MiniMapNodeProps {
   id: string
   type: string
-  parentNode?: string
   selected?: boolean
   dragging?: boolean
   position: XYPosition

@@ -1,4 +1,5 @@
-import { isFunction, isString } from '@vueuse/core'
+import { nextTick } from 'vue'
+import { isDef, isFunction, isGraphNode, isString } from '.'
 import type {
   EdgeAddChange,
   EdgeChange,
@@ -25,8 +26,11 @@ function handleParentExpand(updateItem: GraphNode, parent: GraphNode) {
     if (extendWidth > 0 || extendHeight > 0 || updateItem.position.x < 0 || updateItem.position.y < 0) {
       let parentStyles: Styles = {}
 
-      if (isFunction(parent.style)) parentStyles = { ...parent.style(parent) }
-      else if (parent.style) parentStyles = { ...parent.style }
+      if (isFunction(parent.style)) {
+        parentStyles = { ...parent.style(parent) }
+      } else if (parent.style) {
+        parentStyles = { ...parent.style }
+      }
 
       parentStyles.width = parentStyles.width ?? `${parent.dimensions.width}px`
       parentStyles.height = parentStyles.height ?? `${parent.dimensions.height}px`
@@ -114,11 +118,15 @@ export function applyChanges<
     if (change.type === 'add') {
       const index = elements.findIndex((el) => el.id === change.item.id)
 
-      if (index === -1) elements.push(<T>change.item)
+      if (index === -1) {
+        elements.push(<T>change.item)
+      }
     } else if (change.type === 'remove') {
       const index = elements.findIndex((el) => el.id === change.id)
 
-      if (index !== -1) elements.splice(index, 1)
+      if (index !== -1) {
+        elements.splice(index, 1)
+      }
     }
   })
 
@@ -134,9 +142,13 @@ export function applyChanges<
           break
         case 'position':
           if (isGraphNode(element)) {
-            if (typeof currentChange.position !== 'undefined') element.position = currentChange.position
+            if (typeof currentChange.position !== 'undefined') {
+              element.position = currentChange.position
+            }
 
-            if (typeof currentChange.dragging !== 'undefined') element.dragging = currentChange.dragging
+            if (typeof currentChange.dragging !== 'undefined') {
+              element.dragging = currentChange.dragging
+            }
 
             if (element.expandParent && element.parentNode) {
               const parent = elements[elementIds.indexOf(element.parentNode)]
@@ -149,7 +161,9 @@ export function applyChanges<
           break
         case 'dimensions':
           if (isGraphNode(element)) {
-            if (typeof currentChange.dimensions !== 'undefined') element.dimensions = currentChange.dimensions
+            if (typeof currentChange.dimensions !== 'undefined') {
+              element.dimensions = currentChange.dimensions
+            }
 
             if (typeof currentChange.updateStyle !== 'undefined') {
               element.style = {
@@ -159,7 +173,9 @@ export function applyChanges<
               }
             }
 
-            if (typeof currentChange.resizing !== 'undefined') element.resizing = currentChange.resizing
+            if (typeof currentChange.resizing !== 'undefined') {
+              element.resizing = currentChange.resizing
+            }
 
             if (element.expandParent && element.parentNode) {
               const parent = elements[elementIds.indexOf(element.parentNode)]
@@ -175,7 +191,9 @@ export function applyChanges<
               }
             }
 
-            if (!element.initialized) element.initialized = true
+            if (!element.initialized) {
+              element.initialized = true
+            }
           }
           break
       }
@@ -185,30 +203,46 @@ export function applyChanges<
   return elements
 }
 
-export const applyEdgeChanges = (changes: EdgeChange[], edges: GraphEdge[]) => applyChanges(changes, edges)
-export const applyNodeChanges = (changes: NodeChange[], nodes: GraphNode[]) => applyChanges(changes, nodes)
+export function applyEdgeChanges(changes: EdgeChange[], edges: GraphEdge[]) {
+  return applyChanges(changes, edges)
+}
+export function applyNodeChanges(changes: NodeChange[], nodes: GraphNode[]) {
+  return applyChanges(changes, nodes)
+}
 
-export const createSelectionChange = (id: string, selected: boolean): NodeSelectionChange | EdgeSelectionChange => ({
-  id,
-  type: 'select',
-  selected,
-})
+export function createSelectionChange(id: string, selected: boolean): NodeSelectionChange | EdgeSelectionChange {
+  return {
+    id,
+    type: 'select',
+    selected,
+  }
+}
 
-export const createAdditionChange = <
+export function createAdditionChange<
   T extends GraphNode | GraphEdge = GraphNode,
   C extends NodeAddChange | EdgeAddChange = T extends GraphNode ? NodeAddChange : EdgeAddChange,
->(
-  item: T,
-): C =>
-  <C>{
+>(item: T): C {
+  return <C>{
     item,
     type: 'add',
   }
+}
 
-export const createRemoveChange = (id: string): NodeRemoveChange | EdgeRemoveChange => ({
-  id,
-  type: 'remove',
-})
+export function createNodeRemoveChange(id: string): NodeRemoveChange {
+  return {
+    id,
+    type: 'remove',
+  }
+}
+
+export function createEdgeRemoveChange(id: string, source: string, target: string): EdgeRemoveChange {
+  return {
+    id,
+    source,
+    target,
+    type: 'remove',
+  }
+}
 
 export function getSelectionChanges(elements: FlowElements, selectedIds: string[]) {
   return elements.reduce(

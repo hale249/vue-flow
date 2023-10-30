@@ -1,13 +1,15 @@
 <script lang="ts">
-import { isClient } from '@vueuse/core'
 import { Suspense } from 'vue'
-import DocsRepl from './DocsRepl.vue'
+
+const DocsRepl = defineAsyncComponent(() => import('./DocsRepl.vue'))
 
 export default defineComponent({
-  props: ['example'],
+  props: ['example', 'examplesImports', 'dependencies'],
   setup(props) {
     return () => {
-      if (!isClient) return null
+      if (typeof navigator === 'undefined') {
+        return null
+      }
 
       return h(Suspense, h(DocsRepl, props))
     }

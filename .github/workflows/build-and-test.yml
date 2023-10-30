@@ -5,9 +5,8 @@ on:
     branches:
       - master
       - develop
-
-env:
-  PNPM_CACHE_FOLDER: .pnpm-store
+      - next-release
+      - release/*
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
@@ -32,31 +31,8 @@ jobs:
           node-version: ${{ matrix.node }}
           check-latest: true
 
-      - name: Install pnpm 🎒
-        uses: pnpm/action-setup@v2.2.2
-        with:
-          version: 7
-          run_install: false
-
-      - name: Setup pnpm config 🏗
-        run: pnpm config set store-dir $PNPM_CACHE_FOLDER
-
-      - name: Get pnpm store directory 🏬
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm cache 🧃
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies 👨🏻‍💻
-        run: pnpm install
+      - name: Install Dependencies 👨🏻‍💻
+        uses: ./.github/actions/install-dependencies
 
       - name: Setup Turbo cache 🏎️
         id: turbo-cache
@@ -74,4 +50,9 @@ jobs:
         run: pnpm run build --cache-dir=.turbo
 
       - name: Run tests 🧪
-        run: pnpm cypress install && pnpm run test --cache-dir=.turbo
+        uses: cypress-io/github-action@v5
+        with:
+          install-command: pnpm cypress install
+          command: pnpm run test --cache-dir=.turbo
+          browser: chrome
+          component: true

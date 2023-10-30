@@ -1,7 +1,7 @@
-import type { CSSProperties, Component, VNode } from 'vue'
+import type { CSSProperties, Component, VNode, VNodeRef } from 'vue'
 import type { ClassFunc, ElementData, Position, StyleFunc, Styles } from './flow'
 import type { GraphNode } from './node'
-import type { DefaultEdgeTypes, EdgeComponent, EdgeTextProps } from './components'
+import type { EdgeComponent, EdgeTextProps } from './components'
 import type { CustomEvent, EdgeEventsHandler, EdgeEventsOn } from './hooks'
 
 /** Edge markers */
@@ -58,14 +58,17 @@ export interface EdgeLabelOptions {
   labelBgBorderRadius?: number
 }
 
-export interface DefaultEdge<Data = ElementData, CustomEvents extends Record<string, CustomEvent> = any>
-  extends EdgeLabelOptions {
+export interface DefaultEdge<
+  Data = ElementData,
+  CustomEvents extends Record<string, CustomEvent> = any,
+  Type extends string = string,
+> extends EdgeLabelOptions {
   /** Unique edge id */
   id: string
   /** An edge label */
   label?: string | VNode | Component<EdgeTextProps>
   /** Edge type, can be a default type or a custom type */
-  type?: keyof DefaultEdgeTypes | string
+  type?: Type
   /** Source node id */
   source: string
   /** Target node id */
@@ -132,8 +135,8 @@ export type BezierEdgeType<Data = ElementData, CustomEvents extends Record<strin
   pathOptions?: BezierPathOptions
 }
 
-export type Edge<Data = ElementData, CustomEvents extends Record<string, CustomEvent> = any> =
-  | DefaultEdge<Data, CustomEvents>
+export type Edge<Data = ElementData, CustomEvents extends Record<string, CustomEvent> = any, Type extends string = string> =
+  | DefaultEdge<Data, CustomEvents, Type>
   | SmoothStepEdgeType<Data, CustomEvents>
   | BezierEdgeType<Data, CustomEvents>
 
@@ -152,7 +155,7 @@ export type GraphEdge<
   CustomEvents extends Record<string, CustomEvent> = any,
   Type extends string = string,
 > = Edge<Data, CustomEvents> & {
-  selected?: boolean
+  selected: boolean
   sourceNode: GraphNode
   targetNode: GraphNode
   data: Data
@@ -169,7 +172,7 @@ export interface EdgeProps<Data = ElementData, CustomEvents = {}, Type extends s
   targetNode: GraphNode
   source: string
   target: string
-  type?: Type
+  type: Type
   label?: string | VNode | Component<EdgeTextProps> | Object
   style?: CSSProperties
   selected?: boolean
@@ -189,6 +192,7 @@ export interface EdgeProps<Data = ElementData, CustomEvents = {}, Type extends s
 }
 
 export interface BaseEdgeProps extends EdgeLabelOptions {
+  id?: string
   labelX?: number
   labelY?: number
   path: string
@@ -196,6 +200,8 @@ export interface BaseEdgeProps extends EdgeLabelOptions {
   markerStart?: string
   markerEnd?: string
   interactionWidth?: number
+  style?: CSSProperties
+  ref?: VNodeRef
 }
 
 export type BezierEdgeProps = EdgePositions &
@@ -217,3 +223,9 @@ export type SmoothStepEdgeProps = EdgePositions &
   Omit<BaseEdgeProps, 'labelX' | 'labelY' | 'path'> &
   Pick<EdgeProps, 'sourcePosition' | 'targetPosition'> &
   SmoothStepPathOptions
+
+export type ToGraphEdge<T extends Edge> = GraphEdge<
+  T extends Edge<infer Data> ? Data : never,
+  T extends Edge<never, infer CustomEvents> ? CustomEvents : never,
+  T extends Edge<never, never, infer Type> ? Type : never
+>

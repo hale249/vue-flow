@@ -1,5 +1,31 @@
 # @vue-flow/background
 
+## 1.2.0
+
+### Minor Changes
+
+- [#861](https://github.com/bcakmakoglu/vue-flow/pull/861) [`6c243d8f`](https://github.com/bcakmakoglu/vue-flow/commit/6c243d8fc533cbe2030c6085f5673388769324e6) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Change default bg gap to 20 from 10
+
+### Patch Changes
+
+- [#865](https://github.com/bcakmakoglu/vue-flow/pull/865) [`9ce7bdc4`](https://github.com/bcakmakoglu/vue-flow/commit/9ce7bdc4908dda4dea299e5f469b252ac20a12ab) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `exports` field to package.json
+
+## 1.1.0
+
+### Minor Changes
+
+- [#782](https://github.com/bcakmakoglu/vue-flow/pull/782) [`59430fe3`](https://github.com/bcakmakoglu/vue-flow/commit/59430fe343f5e229864bef8cc857c4c7cc025491) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `lineWidth` prop to background component. Allows changing line bg stroke width
+
+- [#782](https://github.com/bcakmakoglu/vue-flow/pull/782) [`59430fe3`](https://github.com/bcakmakoglu/vue-flow/commit/59430fe343f5e229864bef8cc857c4c7cc025491) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Allow setting gap as number or number array (x,y)
+
+- [#782](https://github.com/bcakmakoglu/vue-flow/pull/782) [`59430fe3`](https://github.com/bcakmakoglu/vue-flow/commit/59430fe343f5e229864bef8cc857c4c7cc025491) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `offset` prop to background component. Allows for offsetting individual backgrounds to create a "multi" bg.
+
+## 1.0.5
+
+### Patch Changes
+
+- [#716](https://github.com/bcakmakoglu/vue-flow/pull/716) [`1685827d`](https://github.com/bcakmakoglu/vue-flow/commit/1685827d0ea1dc9864f95a1b3a54fbc43a296e5d) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Fix umd pkg names and use the correct vue flow core umd pkg name in plugins
+
 ## 1.0.4
 
 ### Patch Changes

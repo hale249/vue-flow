@@ -2,216 +2,266 @@ import type { D3DragEvent, DragBehavior, SubjectPosition } from 'd3-drag'
 import { drag } from 'd3-drag'
 import { select } from 'd3-selection'
 import type { Ref } from 'vue'
-import type { MaybeRef } from '@vueuse/core'
+import { ref, watch } from 'vue'
+import type { MaybeRefOrGetter } from '@vueuse/core'
+import { toValue } from '@vueuse/core'
+import { useGetPointerPosition, useVueFlow } from '.'
+import {
+  calcAutoPan,
+  calcNextPosition,
+  getDragItems,
+  getEventHandlerParams,
+  getEventPosition,
+  handleNodeClick,
+  hasSelector,
+} from '~/utils'
 import type { NodeDragEvent, NodeDragItem, XYPosition } from '~/types'
 
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>
 
 interface UseDragParams {
-  onStart: (event: NodeDragEvent['event'], currentNode: NodeDragEvent['node'], nodes: NodeDragEvent['nodes']) => void
-  onDrag: (event: NodeDragEvent['event'], currentNode: NodeDragEvent['node'], nodes: NodeDragEvent['nodes']) => void
-  onStop: (event: NodeDragEvent['event'], currentNode: NodeDragEvent['node'], nodes: NodeDragEvent['nodes']) => void
-  el: Ref<Element | undefined>
-  disabled?: MaybeRef<boolean>
+  onStart: (args: Omit<NodeDragEvent, 'intersections'>) => void
+  onDrag: (event: Omit<NodeDragEvent, 'intersections'>) => void
+  onStop: (event: Omit<NodeDragEvent, 'intersections'>) => void
+  el: Ref<Element | null>
+  disabled?: MaybeRefOrGetter<boolean>
+  selectable?: MaybeRefOrGetter<boolean>
+  dragHandle?: MaybeRefOrGetter<string | undefined>
   id?: string
 }
 
-function useDrag(params: UseDragParams) {
-  const scope = effectScope()
+export function useDrag(params: UseDragParams) {
+  const {
+    vueFlowRef,
+    snapToGrid,
+    snapGrid,
+    noDragClassName,
+    nodes,
+    nodeExtent,
+    nodeDragThreshold,
+    viewport,
+    autoPanOnNodeDrag,
+    nodesDraggable,
+    panBy,
+    findNode,
+    multiSelectionActive,
+    nodesSelectionActive,
+    selectNodesOnDrag,
+    removeSelectedElements,
+    addSelectedNodes,
+    updateNodePositions,
+    emits,
+  } = useVueFlow()
 
-  tryOnScopeDispose(() => scope.stop())
+  const { onStart, onDrag, onStop, el, disabled, id, selectable, dragHandle } = params
 
-  return scope.run(() => {
-    const {
-      vueFlowRef,
-      snapToGrid,
-      snapGrid,
-      noDragClassName,
-      nodes,
-      nodeExtent,
-      viewport,
-      autoPanOnNodeDrag,
-      nodesDraggable,
-      panBy,
-      findNode,
-      multiSelectionActive,
-      nodesSelectionActive,
-      selectNodesOnDrag,
-      removeSelectedElements,
-      addSelectedNodes,
-      updateNodePositions,
-    } = $(useVueFlow())
+  const dragging = ref(false)
 
-    const { onStart, onDrag, onStop, el, disabled = false, id } = $(params)
+  let dragItems: NodeDragItem[] = []
 
-    const dragging = ref(false)
+  let dragHandler: DragBehavior<Element, unknown, unknown>
 
-    let dragItems = $ref<NodeDragItem[]>([])
+  let containerBounds: DOMRect | null = null
 
-    let dragHandler = $ref<DragBehavior<Element, unknown, unknown>>()
+  let lastPos: Partial<XYPosition> = { x: undefined, y: undefined }
+  let mousePosition: XYPosition = { x: 0, y: 0 }
+  let dragEvent: MouseEvent | null = null
+  let dragStarted = false
 
-    let containerBounds = $ref<DOMRect | null>(null)
+  let autoPanId = 0
+  let autoPanStarted = false
 
-    let lastPos = $ref<Partial<XYPosition>>({ x: undefined, y: undefined })
-    let mousePosition = $ref<XYPosition>({ x: 0, y: 0 })
-    let dragEvent = $ref<MouseEvent | null>(null)
+  const getPointerPosition = useGetPointerPosition()
 
-    let autoPanId = $ref(0)
-    let autoPanStarted = $ref(false)
+  const updateNodes = ({ x, y }: XYPosition) => {
+    lastPos = { x, y }
 
-    const node = $computed(() => (id ? findNode(id) : undefined))
+    let hasChange = false
 
-    const getPointerPosition = useGetPointerPosition()
+    dragItems = dragItems.map((n) => {
+      const nextPosition = { x: x - n.distance.x, y: y - n.distance.y }
 
-    watch([() => disabled, () => el], () => {
-      if (el) {
-        const selection = select(el)
+      if (snapToGrid.value) {
+        nextPosition.x = snapGrid.value[0] * Math.round(nextPosition.x / snapGrid.value[0])
+        nextPosition.y = snapGrid.value[1] * Math.round(nextPosition.y / snapGrid.value[1])
+      }
 
-        const updateNodes = ({ x, y }: XYPosition) => {
-          lastPos = { x, y }
+      const { computedPosition } = calcNextPosition(
+        n,
+        nextPosition,
+        emits.error,
+        nodeExtent.value,
+        n.parentNode ? findNode(n.parentNode) : undefined,
+      )
 
-          let hasChange = false
+      // we want to make sure that we only fire a change event when there is a change
+      hasChange = hasChange || n.position.x !== computedPosition.x || n.position.y !== computedPosition.y
 
-          dragItems = dragItems.map((n) => {
-            const nextPosition = { x: x - n.distance.x, y: y - n.distance.y }
+      n.position = computedPosition
 
-            if (snapToGrid) {
-              nextPosition.x = snapGrid[0] * Math.round(nextPosition.x / snapGrid[0])
-              nextPosition.y = snapGrid[1] * Math.round(nextPosition.y / snapGrid[1])
+      return n
+    })
+
+    if (!hasChange) {
+      return
+    }
+
+    updateNodePositions(dragItems, true, true)
+
+    dragging.value = true
+
+    if (dragEvent) {
+      const [currentNode, nodes] = getEventHandlerParams({
+        id,
+        dragItems,
+        findNode,
+      })
+
+      onDrag({ event: dragEvent, node: currentNode, nodes })
+    }
+  }
+
+  const autoPan = (): void => {
+    if (!containerBounds) {
+      return
+    }
+
+    const [xMovement, yMovement] = calcAutoPan(mousePosition, containerBounds)
+
+    if (xMovement !== 0 || yMovement !== 0) {
+      const nextPos = {
+        x: (lastPos.x ?? 0) - xMovement / viewport.value.zoom,
+        y: (lastPos.y ?? 0) - yMovement / viewport.value.zoom,
+      }
+
+      if (panBy({ x: xMovement, y: yMovement })) {
+        updateNodes(nextPos)
+      }
+    }
+
+    autoPanId = requestAnimationFrame(autoPan)
+  }
+
+  watch([() => toValue(disabled), el], ([isDisabled, nodeEl]) => {
+    if (nodeEl) {
+      const selection = select(nodeEl)
+
+      if (isDisabled) {
+        selection.on('.drag', null)
+      } else {
+        const startDrag = (event: UseDragEvent) => {
+          dragStarted = true
+
+          const node = findNode(id)
+          if (!selectNodesOnDrag.value && !multiSelectionActive.value && node) {
+            if (!node.selected) {
+              // we need to reset selected nodes when selectNodesOnDrag=false
+              removeSelectedElements()
             }
+          }
 
-            const { computedPosition } = calcNextPosition(
-              n,
-              nextPosition,
-              nodeExtent,
-              n.parentNode ? findNode(n.parentNode) : undefined,
+          if (node && toValue(selectable) && selectNodesOnDrag.value) {
+            handleNodeClick(
+              node,
+              multiSelectionActive.value,
+              addSelectedNodes,
+              removeSelectedElements,
+              nodesSelectionActive,
+              false,
+              nodeEl as HTMLDivElement,
             )
+          }
 
-            // we want to make sure that we only fire a change event when there is a changes
-            hasChange = hasChange || n.position.x !== computedPosition.x || n.position.y !== computedPosition.y
+          const pointerPos = getPointerPosition(event)
+          lastPos = pointerPos
+          dragItems = getDragItems(nodes.value, nodesDraggable.value, pointerPos, findNode, id)
 
-            n.position = computedPosition
-
-            return n
-          })
-
-          if (!hasChange) return
-
-          updateNodePositions(dragItems, true, true)
-
-          dragging.value = true
-
-          if (dragEvent) {
+          if (dragItems.length) {
             const [currentNode, nodes] = getEventHandlerParams({
               id,
               dragItems,
               findNode,
             })
 
-            onDrag(dragEvent, currentNode, nodes)
+            onStart({ event: event.sourceEvent, node: currentNode, nodes })
           }
         }
 
-        const autoPan = (): void => {
-          if (!containerBounds) return
+        dragHandler = drag()
+          .on('start', (event: UseDragEvent) => {
+            if (nodeDragThreshold.value === 0) {
+              startDrag(event)
+            }
 
-          const [xMovement, yMovement] = calcAutoPan(mousePosition, containerBounds)
+            lastPos = getPointerPosition(event)
 
-          if (xMovement !== 0 || yMovement !== 0) {
-            lastPos.x = (lastPos.x ?? 0) - xMovement / viewport.zoom
-            lastPos.y = (lastPos.y ?? 0) - yMovement / viewport.zoom
+            containerBounds = vueFlowRef.value?.getBoundingClientRect() || null
+            mousePosition = getEventPosition(event.sourceEvent, containerBounds!)
+          })
+          .on('drag', (event: UseDragEvent) => {
+            const pointerPos = getPointerPosition(event)
 
-            updateNodes(lastPos as XYPosition)
+            if (!autoPanStarted && dragStarted && autoPanOnNodeDrag.value) {
+              autoPanStarted = true
+              autoPan()
+            }
 
-            panBy({ x: xMovement, y: yMovement })
-          }
+            if (!dragStarted) {
+              const x = pointerPos.xSnapped - (lastPos.x ?? 0)
+              const y = pointerPos.ySnapped - (lastPos.y ?? 0)
+              const distance = Math.sqrt(x * x + y * y)
 
-          autoPanId = requestAnimationFrame(autoPan)
-        }
-
-        if (disabled) {
-          selection.on('.drag', null)
-        } else {
-          dragHandler = drag()
-            .on('start', (event: UseDragEvent) => {
-              if (!selectNodesOnDrag && !multiSelectionActive && id) {
-                if (!node?.selected) {
-                  // we need to reset selected nodes when selectNodesOnDrag=false
-                  removeSelectedElements()
-                }
+              if (distance > nodeDragThreshold.value) {
+                startDrag(event)
               }
+            }
 
-              if (node && selectNodesOnDrag) {
-                handleNodeClick(node, multiSelectionActive, addSelectedNodes, removeSelectedElements, $$(nodesSelectionActive))
-              }
-
-              const pointerPos = getPointerPosition(event)
-              lastPos = pointerPos
-              dragItems = getDragItems(nodes, nodesDraggable, pointerPos, findNode, id)
-
-              if (dragItems.length) {
-                const [currentNode, nodes] = getEventHandlerParams({
-                  id,
-                  dragItems,
-                  findNode,
-                })
-
-                onStart(event.sourceEvent, currentNode, nodes)
-              }
-
-              containerBounds = vueFlowRef?.getBoundingClientRect() || null
+            // skip events without movement
+            if ((lastPos.x !== pointerPos.xSnapped || lastPos.y !== pointerPos.ySnapped) && dragItems.length && dragStarted) {
+              dragEvent = event.sourceEvent as MouseEvent
               mousePosition = getEventPosition(event.sourceEvent, containerBounds!)
-            })
-            .on('drag', (event: UseDragEvent) => {
-              const pointerPos = getPointerPosition(event)
 
-              if (!autoPanStarted && autoPanOnNodeDrag) {
-                autoPanStarted = true
-                autoPan()
-              }
+              updateNodes(pointerPos)
+            }
+          })
+          .on('end', (event: UseDragEvent) => {
+            if (!dragStarted) {
+              return
+            }
 
-              // skip events without movement
-              if ((lastPos.x !== pointerPos.xSnapped || lastPos.y !== pointerPos.ySnapped) && dragItems.length) {
-                dragEvent = event.sourceEvent as MouseEvent
-                mousePosition = getEventPosition(event.sourceEvent, containerBounds!)
+            dragging.value = false
+            autoPanStarted = false
+            dragStarted = false
+            cancelAnimationFrame(autoPanId)
 
-                updateNodes(pointerPos)
-              }
-            })
-            .on('end', (event: UseDragEvent) => {
-              dragging.value = false
-              autoPanStarted = false
-              cancelAnimationFrame(autoPanId)
+            if (dragItems.length) {
+              updateNodePositions(dragItems, false, false)
 
-              if (dragItems.length) {
-                updateNodePositions(dragItems, false, false)
+              const [currentNode, nodes] = getEventHandlerParams({
+                id,
+                dragItems,
+                findNode,
+              })
 
-                const [currentNode, nodes] = getEventHandlerParams({
-                  id,
-                  dragItems,
-                  findNode,
-                })
+              onStop({ event: event.sourceEvent, node: currentNode, nodes })
+            }
+          })
+          .filter((event: D3DragEvent<HTMLDivElement, null, SubjectPosition>['sourceEvent']) => {
+            const target = event.target as HTMLDivElement
+            const unrefDragHandle = toValue(dragHandle)
 
-                onStop(event.sourceEvent as MouseEvent, currentNode, nodes)
-              }
-            })
-            .filter((event: D3DragEvent<HTMLDivElement, null, SubjectPosition>['sourceEvent']) => {
-              const target = event.target as HTMLDivElement
-              return (
-                !event.button &&
-                (!noDragClassName ||
-                  (!hasSelector(target, `.${noDragClassName}`, el) &&
-                    (!node?.dragHandle || hasSelector(target, node.dragHandle, el))))
-              )
-            })
+            return (
+              !event.button &&
+              (!noDragClassName.value ||
+                (!hasSelector(target, `.${noDragClassName.value}`, nodeEl) &&
+                  (!unrefDragHandle || hasSelector(target, unrefDragHandle, nodeEl))))
+            )
+          })
 
-          selection.call(dragHandler)
-        }
+        selection.call(dragHandler)
       }
-    })
-
-    return dragging
+    }
   })
-}
 
-export default useDrag
+  return dragging
+}

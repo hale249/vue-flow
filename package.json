@@ -2,29 +2,26 @@
   "name": "@vue-flow/monorepo",
   "version": "0.0.0",
   "private": true,
+  "engines": {
+    "node": "18",
+    "pnpm": ">=8"
+  },
   "scripts": {
-    "dev": "pnpm --dir examples/vite dev",
-    "docs": "pnpm --dir docs dev",
+    "dev": "pnpm build && turbo dev --filter='./packages/*' --filter=@vue-flow/examples-vite",
+    "dev:docs": "turbo dev --filter=@vue-flow/docs",
     "changelog": "git-cliff --output CHANGELOG.md && git add CHANGELOG.md && git commit -m \"chore: Update CHANGELOG.md\"",
-    "build:docs": "turbo docs",
-    "build": "turbo build",
+    "build:docs": "turbo build --filter docs",
+    "build": "turbo build --filter='./packages/*' --filter=!vueflow",
     "test": "turbo test",
-    "lint": "turbo lint",
-    "typedocs": "turbo run build && pnpm --dir docs typedocs",
+    "lint": "turbo lint --filter='./packages/*' --filter=!vueflow",
+    "typedocs": "pnpm build && pnpm --dir docs typedocs",
     "ci:version": "changeset version",
-    "ci:publish": "turbo lint && turbo build && turbo test && changeset publish"
+    "ci:publish": "pnpm lint && pnpm build && pnpm test && changeset publish"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.35.1",
     "@changesets/changelog-github": "^0.4.8",
-    "@changesets/cli": "^2.26.0",
-    "eslint": "^8.33.0",
-    "eslint-config-prettier": "^8.6.0",
-    "eslint-plugin-chai-friendly": "^0.7.2",
-    "eslint-plugin-prettier": "^4.2.1",
-    "prettier": "^2.8.3",
+    "@changesets/cli": "^2.26.1",
     "shx": "^0.3.4",
-    "turbo": "^1.7.2",
-    "typescript": "^4.9.5"
+    "turbo": "^1.9.6"
   }
 }

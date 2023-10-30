@@ -1,6 +1,6 @@
 <script setup>
 import { Background } from '@vue-flow/background'
-import { Panel, PanelPosition, VueFlow, isNode } from '@vue-flow/core'
+import { Panel, VueFlow, isNode } from '@vue-flow/core'
 import { ref } from 'vue'
 
 const elements = ref([
@@ -12,10 +12,12 @@ const elements = ref([
   { id: 'e1-3', source: '1', target: '3' },
 ])
 
-const toggleClass = () => elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+function toggleClass() {
+  return elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+}
 
-const updatePos = () =>
-  elements.value.forEach((el) => {
+function updatePos() {
+  return elements.value.forEach((el) => {
     if (isNode(el)) {
       el.position = {
         x: Math.random() * 400,
@@ -23,13 +25,14 @@ const updatePos = () =>
       }
     }
   })
+}
 </script>
 
 <template>
   <VueFlow v-model="elements" fit-view-on-init>
     <Background />
 
-    <Panel :position="PanelPosition.TopRight">
+    <Panel position="top-right">
       <button style="margin-right: 5px" @click="updatePos">update positions</button>
       <button @click="toggleClass">toggle class</button>
     </Panel>

@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-const { userSelectionRect } = useVueFlow()
+import type { SelectionRect } from '~/types'
+
+defineProps<{ userSelectionRect: SelectionRect }>()
 </script>
 
 <script lang="ts">
@@ -13,9 +15,9 @@ export default {
   <div
     class="vue-flow__selection vue-flow__container"
     :style="{
-      width: `${userSelectionRect?.width}px`,
-      height: `${userSelectionRect?.height}px`,
-      transform: `translate(${userSelectionRect?.x}px, ${userSelectionRect?.y}px)`,
+      width: `${userSelectionRect.width}px`,
+      height: `${userSelectionRect.height}px`,
+      transform: `translate(${userSelectionRect.x}px, ${userSelectionRect.y}px)`,
     }"
   />
 </template>

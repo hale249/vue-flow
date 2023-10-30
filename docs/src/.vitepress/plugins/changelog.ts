@@ -1,5 +1,5 @@
-import { copyFile, existsSync, mkdirSync, readdirSync, statSync } from 'fs'
-import { resolve } from 'path'
+import { copyFile, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 interface ChangelogFile {
   path: string
@@ -10,7 +10,9 @@ const skip = ['node_modules', 'dist', 'turbo']
 
 const getAllFiles = function (dirPath: string, needle?: string, arrayOfFiles: ChangelogFile[] = [], pkgName?: string) {
   readdirSync(dirPath).forEach((file) => {
-    if (skip.includes(file)) return
+    if (skip.includes(file)) {
+      return
+    }
 
     if (statSync(`${dirPath}/${file}`).isDirectory()) {
       getAllFiles(`${dirPath}/${file}`, needle, arrayOfFiles, file)

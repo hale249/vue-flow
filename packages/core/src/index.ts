@@ -41,11 +41,15 @@ export {
   getConnectedEdges,
   getTransformForBounds,
   getRectOfNodes,
-  graphPosToZoomedPos,
+  pointToRendererPoint,
+  rendererPointToPoint,
+  /** @deprecated will be removed in the next major version, use `rendererPointToPoint` instead */
+  rendererPointToPoint as graphPosToZoomedPos,
   getNodesInside,
   getMarkerId,
   getBoundsofRects,
   connectionExists,
+  clamp,
 } from './utils/graph'
 
 /**
@@ -58,18 +62,16 @@ export { defaultEdgeTypes, defaultNodeTypes } from './store/state'
 
 export { VueFlow as VueFlowInjection, NodeId as NodeIdInjection } from './context'
 
-export { default as useZoomPanHelper } from './composables/useZoomPanHelper'
+export {
+  useZoomPanHelper,
+  useVueFlow,
+  Storage as GlobalVueFlowStorage,
+  useHandle,
+  useNode,
+  useEdge,
+  useGetPointerPosition,
+} from './composables'
 
-export { default as useVueFlow, Storage as GlobalVueFlowStorage } from './composables/useVueFlow'
-
-export { default as useHandle } from './composables/useHandle'
-
-export { default as useNode } from './composables/useNode'
-
-export { default as useEdge } from './composables/useEdge'
-
-export { useGetPointerPosition } from './composables/useGetPointerPosition'
-
-export { VueFlowError } from './utils/log'
+export { VueFlowError, ErrorCode } from './utils/errors'
 
 export * from './types'

@@ -1,43 +1,65 @@
-import type { Actions, Connection, Edge, GraphEdge, GraphNode, Node } from '~/types'
+import { unref } from 'vue'
+import { ErrorCode, VueFlowError, connectionExists, getEdgeId, isEdge, isNode, parseEdge, parseNode } from '.'
+import type { Actions, Connection, Edge, GraphEdge, GraphNode, Node, State } from '~/types'
 
-export const isDef = <T>(val: T): val is NonNullable<T> => typeof unref(val) !== 'undefined'
+type NonUndefined<T> = T extends undefined ? never : T
 
-export function addEdgeToStore(edgeParams: Edge | Connection, edges: Edge[]) {
+export function isDef<T>(val: T): val is NonUndefined<T> {
+  const unrefVal = unref(val)
+
+  return typeof unrefVal !== 'undefined'
+}
+
+export function addEdgeToStore(edgeParams: Edge | Connection, edges: Edge[], onError: State['hooks']['error']['trigger']) {
   if (!edgeParams.source || !edgeParams.target) {
-    warn("Can't create edge. An edge needs a source and a target.")
+    onError(new VueFlowError(ErrorCode.EDGE_INVALID, (edgeParams as Edge).id))
     return false
   }
 
   let edge
   if (isEdge(edgeParams)) {
-    edge = { ...edgeParams }
+    edge = edgeParams
   } else {
     edge = {
       ...edgeParams,
       id: getEdgeId(edgeParams),
     } as Edge
   }
+
   edge = parseEdge(edge)
-  if (connectionExists(edge, edges)) return false
+
+  if (connectionExists(edge, edges)) {
+    return false
+  }
+
   return edge
 }
 
-export function updateEdgeAction(edge: GraphEdge, newConnection: Connection, edges: GraphEdge[]) {
+export function updateEdgeAction(
+  edge: GraphEdge,
+  newConnection: Connection,
+  edges: GraphEdge[],
+  findEdge: Actions['findEdge'],
+  shouldReplaceId: boolean,
+  onError: State['hooks']['error']['trigger'],
+) {
   if (!newConnection.source || !newConnection.target) {
-    warn("Can't create new edge. An edge needs a source and a target.")
+    onError(new VueFlowError(ErrorCode.EDGE_INVALID, edge.id))
     return false
   }
 
-  const foundEdge = edges.find((e) => isGraphEdge(e) && e.id === edge.id)
+  const foundEdge = findEdge(edge.id)
 
   if (!foundEdge) {
-    warn(`The old edge with id=${edge.id} does not exist.`)
+    onError(new VueFlowError(ErrorCode.EDGE_NOT_FOUND, edge.id))
     return false
   }
 
+  const { id, ...rest } = edge
+
   const newEdge = {
-    ...edge,
-    id: getEdgeId(newConnection),
+    ...rest,
+    id: shouldReplaceId ? getEdgeId(newConnection) : id,
     source: newConnection.source,
     target: newConnection.target,
     sourceHandle: newConnection.sourceHandle,
@@ -49,10 +71,21 @@ export function updateEdgeAction(edge: GraphEdge, newConnection: Connection, edg
   return newEdge
 }
 
-export function createGraphNodes(nodes: Node[], findNode: Actions['findNode'], currGraphNodes: GraphNode[]) {
+export function createGraphNodes(
+  nodes: Node[],
+  currGraphNodes: GraphNode[],
+  findNode: Actions['findNode'],
+  onError: State['hooks']['error']['trigger'],
+) {
   const parentNodes: Record<string, true> = {}
 
-  const graphNodes = nodes.map((node) => {
+  const graphNodes = nodes.reduce((nextNodes, node) => {
+    // make sure we don't try to add invalid nodes
+    if (!isNode(node)) {
+      onError(new VueFlowError(ErrorCode.NODE_INVALID))
+      return nextNodes
+    }
+
     const parsed = parseNode(node, {
       ...findNode(node.id),
       parentNode: node.parentNode,
@@ -62,16 +95,16 @@ export function createGraphNodes(nodes: Node[], findNode: Actions['findNode'], c
       parentNodes[node.parentNode] = true
     }
 
-    return parsed
-  })
+    return nextNodes.concat(parsed)
+  }, [] as GraphNode[])
 
-  graphNodes.forEach((node) => {
-    const nextNodes = [...graphNodes, ...currGraphNodes]
+  const nextNodes = [...graphNodes, ...currGraphNodes]
 
+  for (const node of graphNodes) {
     const parentNode = nextNodes.find((n) => n.id === node.parentNode)
 
     if (node.parentNode && !parentNode) {
-      warn(`Parent node ${node.parentNode} not found`)
+      onError(new VueFlowError(ErrorCode.NODE_MISSING_PARENT, node.id, node.parentNode))
     }
 
     if (node.parentNode || parentNodes[node.id]) {
@@ -79,9 +112,11 @@ export function createGraphNodes(nodes: Node[], findNode: Actions['findNode'], c
         node.isParent = true
       }
 
-      if (parentNode) parentNode.isParent = true
+      if (parentNode) {
+        parentNode.isParent = true
+      }
     }
-  })
+  }
 
   return graphNodes
 }

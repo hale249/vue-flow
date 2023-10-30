@@ -1,5 +1,10 @@
+import { toRefs, tryOnScopeDispose } from '@vueuse/core'
 import type { EffectScope } from 'vue'
-import type { FlowOptions, FlowProps, State, VueFlowStore } from '~/types'
+import { computed, effectScope, getCurrentScope, inject, provide, reactive, watch } from 'vue'
+import { useActions, useGetters, useState } from '~/store'
+import type { EdgeChange, FlowOptions, FlowProps, NodeChange, State, VueFlowStore } from '~/types'
+import { VueFlow } from '~/context'
+import { warn } from '~/utils'
 
 /**
  * Stores all currently created store instances
@@ -34,10 +39,6 @@ export class Storage {
 
     const reactiveState = reactive(state)
 
-    const getters = useGetters(reactiveState)
-
-    const actions = useActions(reactiveState, getters)
-
     const hooksOn = <any>{}
     Object.entries(reactiveState.hooks).forEach(([n, h]) => {
       const name = `on${n.charAt(0).toUpperCase() + n.slice(1)}`
@@ -49,6 +50,13 @@ export class Storage {
       emits[n] = h.trigger
     })
 
+    const nodeIds = computed(() => reactiveState.nodes.map((n) => n.id))
+    const edgeIds = computed(() => reactiveState.edges.map((e) => e.id))
+
+    const getters = useGetters(reactiveState, nodeIds, edgeIds)
+
+    const actions = useActions(id, emits, hooksOn, reactiveState, getters, nodeIds, edgeIds)
+
     actions.setState(reactiveState)
 
     const flow: VueFlowStore = {
@@ -58,6 +66,7 @@ export class Storage {
       ...toRefs(reactiveState),
       emits,
       id,
+      vueFlowVersion: typeof __VUE_FLOW_VERSION__ !== 'undefined' ? __VUE_FLOW_VERSION__ : 'UNKNOWN',
       $destroy: () => {
         this.remove(id)
       },
@@ -76,7 +85,8 @@ export class Storage {
 type Injection = VueFlowStore | null | undefined
 type Scope = (EffectScope & { vueFlowId: string }) | undefined
 
-export default (options?: FlowProps): VueFlowStore => {
+// todo: maybe replace the storage with a context based solution; This would break calling useVueFlow outside a setup function though, which should be fine
+export function useVueFlow(options?: FlowProps): VueFlowStore {
   const storage = Storage.getInstance()
 
   const scope = getCurrentScope() as Scope
@@ -86,15 +96,15 @@ export default (options?: FlowProps): VueFlowStore => {
 
   let vueFlow: Injection
 
-  let isParentScope = false
-
   /**
    * check if we can get a store instance through injections
    * this should be the regular way after initialization
    */
   if (scope) {
     const injection = inject(VueFlow, null)
-    if (typeof injection !== 'undefined' && injection !== null) vueFlow = injection
+    if (typeof injection !== 'undefined' && injection !== null) {
+      vueFlow = injection
+    }
   }
 
   /**
@@ -102,7 +112,9 @@ export default (options?: FlowProps): VueFlowStore => {
    * this requires options id or an id on the current scope
    */
   if (!vueFlow) {
-    if (vueFlowId) vueFlow = storage.get(vueFlowId)
+    if (vueFlowId) {
+      vueFlow = storage.get(vueFlowId)
+    }
   }
 
   /**
@@ -113,28 +125,35 @@ export default (options?: FlowProps): VueFlowStore => {
   if (!vueFlow || (vueFlow && id && id !== vueFlow.id)) {
     const name = id ?? storage.getId()
 
-    vueFlow = storage.create(name, options)
+    const state = storage.create(name, options)
 
-    if (scope) {
-      isParentScope = true
-    }
-  } else {
-    // if composable was called with additional options after initialization, overwrite state with the options values
-    if (options) vueFlow.setState(options)
-  }
+    vueFlow = state
 
-  /**
-   * Vue flow wasn't able to find any store instance - we can't proceed
-   */
-  if (!vueFlow) throw new VueFlowError('Store instance not found.', 'useVueFlow')
+    const detachedScope = effectScope()
 
-  // always provide a fresh instance into context on call
-  if (scope) {
-    provide(VueFlow, vueFlow)
+    detachedScope.run(() => {
+      watch(
+        state.applyDefault,
+        (shouldApplyDefault) => {
+          const nodesChangeHandler = (changes: NodeChange[]) => {
+            state.applyNodeChanges(changes)
+          }
 
-    scope.vueFlowId = vueFlow.id
+          const edgesChangeHandler = (changes: EdgeChange[]) => {
+            state.applyEdgeChanges(changes)
+          }
 
-    if (isParentScope) {
+          if (shouldApplyDefault) {
+            state.onNodesChange(nodesChangeHandler)
+            state.onEdgesChange(edgesChangeHandler)
+          } else {
+            state.hooks.value.nodesChange.off(nodesChangeHandler)
+            state.hooks.value.edgesChange.off(edgesChangeHandler)
+          }
+        },
+        { immediate: true },
+      )
+
       // dispose of state values and storage entry
       tryOnScopeDispose(() => {
         if (vueFlow) {
@@ -147,7 +166,19 @@ export default (options?: FlowProps): VueFlowStore => {
           }
         }
       })
+    })
+  } else {
+    // if composable was called with additional options after initialization, overwrite state with the options values
+    if (options) {
+      vueFlow.setState(options)
     }
+  }
+
+  // always provide a fresh instance into context on call
+  if (scope) {
+    provide(VueFlow, vueFlow)
+
+    scope.vueFlowId = vueFlow.id
   }
 
   return vueFlow

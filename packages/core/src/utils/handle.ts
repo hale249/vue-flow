@@ -1,22 +1,32 @@
+import { getEventPosition } from '.'
 import { ConnectionMode } from '~/types'
 import type {
   Actions,
   Connection,
   ConnectionStatus,
+  Dimensions,
   GraphEdge,
   GraphNode,
   HandleType,
   NodeHandleBounds,
   ValidConnectionFunc,
+  ValidHandleResult,
   XYPosition,
 } from '~/types'
 
-export interface ConnectionHandle {
+export interface ConnectionHandle extends XYPosition, Dimensions {
   id: string | null
-  type: HandleType
+  type: HandleType | null
   nodeId: string
-  x: number
-  y: number
+}
+
+function defaultValidHandleResult(): ValidHandleResult {
+  return {
+    handleDomNode: null,
+    isValid: false,
+    connection: { source: '', target: '', sourceHandle: null, targetHandle: null },
+    endHandle: null,
+  }
 }
 
 export function resetRecentHandle(handleDomNode: Element): void {
@@ -39,6 +49,8 @@ export function getHandles(
         nodeId: node.id,
         x: (node.computedPosition?.x ?? 0) + h.x + h.width / 2,
         y: (node.computedPosition?.y ?? 0) + h.y + h.height / 2,
+        width: h.width,
+        height: h.height,
       })
     }
     return res
@@ -46,28 +58,86 @@ export function getHandles(
 }
 
 export function getClosestHandle(
+  event: MouseEvent | TouchEvent,
+  doc: Document | ShadowRoot,
   pos: XYPosition,
   connectionRadius: number,
   handles: ConnectionHandle[],
-): ConnectionHandle | null {
-  let closestHandle: ConnectionHandle | null = null
+  validator: (handle: Pick<ConnectionHandle, 'nodeId' | 'id' | 'type'>) => ValidHandleResult,
+) {
+  // we always want to prioritize the handle below the mouse cursor over the closest distance handle,
+  // because it could be that the center of another handle is closer to the mouse pointer than the handle below the cursor
+  const { x, y } = getEventPosition(event)
+  const domNodes = doc.elementsFromPoint(x, y)
+
+  const handleBelow = domNodes.find((el) => el.classList.contains('vue-flow__handle'))
+
+  if (handleBelow) {
+    const handleNodeId = handleBelow.getAttribute('data-nodeid')
+
+    if (handleNodeId) {
+      const handleType = getHandleType(undefined, handleBelow)
+      const handleId = handleBelow.getAttribute('data-handleid')
+      const validHandleResult = validator({ nodeId: handleNodeId, id: handleId, type: handleType })
+
+      if (validHandleResult) {
+        return {
+          handle: {
+            id: handleId,
+            type: handleType,
+            nodeId: handleNodeId,
+            x: pos.x,
+            y: pos.y,
+          },
+          validHandleResult,
+        }
+      }
+    }
+  }
+
+  // if we couldn't find a handle below the mouse cursor we look for the closest distance based on the connectionRadius
+  let closestHandles: { handle: ConnectionHandle; validHandleResult: ValidHandleResult }[] = []
   let minDistance = Infinity
 
   handles.forEach((handle) => {
     const distance = Math.sqrt((handle.x - pos.x) ** 2 + (handle.y - pos.y) ** 2)
-    if (distance <= connectionRadius && distance < minDistance) {
-      minDistance = distance
-      closestHandle = handle
+
+    if (distance <= connectionRadius) {
+      const validHandleResult = validator(handle)
+
+      if (distance <= minDistance) {
+        if (distance < minDistance) {
+          closestHandles = [{ handle, validHandleResult }]
+        } else if (distance === minDistance) {
+          // when multiple handles are on the same distance we collect all of them
+          closestHandles.push({
+            handle,
+            validHandleResult,
+          })
+        }
+
+        minDistance = distance
+      }
     }
   })
 
-  return closestHandle
-}
+  if (!closestHandles.length) {
+    return { handle: null, validHandleResult: defaultValidHandleResult() }
+  }
 
-interface Result {
-  handleDomNode: Element | null
-  isValid: boolean
-  connection: Connection
+  if (closestHandles.length === 1) {
+    return closestHandles[0]
+  }
+
+  const hasValidHandle = closestHandles.some(({ validHandleResult }) => validHandleResult.isValid)
+  const hasTargetHandle = closestHandles.some(({ handle }) => handle.type === 'target')
+
+  // if multiple handles are layout on top of each other we prefer the one with type = target and the one that is valid
+  return (
+    closestHandles.find(({ handle, validHandleResult }) =>
+      hasTargetHandle ? handle.type === 'target' : hasValidHandle ? validHandleResult.isValid : true,
+    ) || closestHandles[0]
+  )
 }
 
 // checks if  and returns connection in fom of an object { source: 123, target: 312 }
@@ -77,7 +147,7 @@ export function isValidHandle(
   connectionMode: ConnectionMode,
   fromNodeId: string,
   fromHandleId: string | null,
-  fromType: string,
+  fromType: HandleType,
   isValidConnection: ValidConnectionFunc,
   doc: Document | ShadowRoot,
   edges: GraphEdge[],
@@ -87,33 +157,46 @@ export function isValidHandle(
 
   const handleDomNode = doc.querySelector(`.vue-flow__handle[data-id="${handle?.nodeId}-${handle?.id}-${handle?.type}"]`)
   const { x, y } = getEventPosition(event)
-  const handleBelow = doc.elementFromPoint(x, y)
-  const handleToCheck = handleBelow?.classList.contains('vue-flow__handle') ? handleBelow : handleDomNode
+  const elementBelow = doc.elementFromPoint(x, y)
 
-  const result: Result = {
-    handleDomNode: handleToCheck,
-    isValid: false,
-    connection: { source: '', target: '', sourceHandle: null, targetHandle: null },
-  }
+  // we always want to prioritize the handle below the mouse cursor over the closest distance handle,
+  // because it could be that the center of another handle is closer to the mouse pointer than the handle below the cursor
+  const handleToCheck = elementBelow?.classList.contains('vue-flow__handle') ? elementBelow : handleDomNode
 
-  if (handleDomNode && handle) {
-    const handleNodeId = handleDomNode.getAttribute('data-nodeid')
-    const handleId = handleDomNode.getAttribute('data-handleid')
+  const result = defaultValidHandleResult()
+
+  if (handleToCheck) {
+    result.handleDomNode = handleToCheck
+
+    const handleType = getHandleType(undefined, handleToCheck)
+    const handleNodeId = handleToCheck.getAttribute('data-nodeid')!
+    const handleId = handleToCheck.getAttribute('data-handleid')
+    const connectable = handleToCheck.classList.contains('connectable')
+    const connectableEnd = handleToCheck.classList.contains('connectableend')
 
     const connection: Connection = {
-      source: isTarget ? handle.nodeId : fromNodeId,
+      source: isTarget ? handleNodeId : fromNodeId,
       sourceHandle: isTarget ? handleId : fromHandleId,
-      target: isTarget ? fromNodeId : handle.nodeId,
+      target: isTarget ? fromNodeId : handleNodeId,
       targetHandle: isTarget ? fromHandleId : handleId,
     }
 
     result.connection = connection
 
+    const isConnectable = connectable && connectableEnd
+
     // in strict mode we don't allow target to target or source to source connections
     const isValid =
-      connectionMode === ConnectionMode.Strict
-        ? (isTarget && handle.type === 'source') || (!isTarget && handle.type === 'target')
-        : handleNodeId !== fromNodeId || handleId !== fromHandleId
+      isConnectable &&
+      (connectionMode === ConnectionMode.Strict
+        ? (isTarget && handleType === 'source') || (!isTarget && handleType === 'target')
+        : handleNodeId !== fromNodeId || handleId !== fromHandleId)
+
+    result.endHandle = {
+      nodeId: handleNodeId,
+      handleId,
+      type: handleType as HandleType,
+    }
 
     if (isValid) {
       result.isValid = isValidConnection(connection, {

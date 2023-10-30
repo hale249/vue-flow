@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { useVueFlow } from '@vue-flow/core'
+
 const { nodesSelectionActive, addSelectedNodes, getNodes, viewport } = useVueFlow()
 
-const selectAll = () => {
+function selectAll() {
   addSelectedNodes(getNodes.value)
   nodesSelectionActive.value = true
 }

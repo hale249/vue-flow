@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { Elements } from '@vue-flow/core'
-import { VueFlow, isNode, useVueFlow } from '@vue-flow/core'
+import { Panel, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
 
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -14,19 +14,16 @@ const elements = ref<Elements>([
   { id: 'e1-2', source: '1', target: '2', animated: true },
   { id: 'e1-3', source: '1', target: '3' },
 ])
-const { onNodeDragStop, onEdgeClick, onConnect, addEdges, setTransform, toObject } = useVueFlow({
+
+const { onConnect, addEdges, setTransform, toObject } = useVueFlow({
   minZoom: 0.2,
   maxZoom: 4,
-  connectOnClick: true,
-  fitViewOnInit: false,
 })
 
-onNodeDragStop((e) => console.log('drag stop', e.event))
-onEdgeClick(console.log)
-onConnect((params) => addEdges([params]))
+onConnect(addEdges)
 
-const updatePos = () =>
-  elements.value.forEach((el) => {
+function updatePos() {
+  return elements.value.forEach((el) => {
     if (isNode(el)) {
       el.position = {
         x: Math.random() * 400,
@@ -34,22 +31,29 @@ const updatePos = () =>
       }
     }
   })
+}
 
-const logToObject = () => console.log(toObject())
-const resetTransform = () => setTransform({ x: 0, y: 0, zoom: 1 })
-const toggleclass = () => elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+function logToObject() {
+  return console.log(toObject())
+}
+function resetTransform() {
+  return setTransform({ x: 0, y: 0, zoom: 1 })
+}
+function toggleclass() {
+  return elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+}
 </script>
 
 <template>
-  <VueFlow v-model="elements" fit-view-on-init connection-mode="strict" class="vue-flow-basic-example">
+  <VueFlow v-model="elements" fit-view-on-init class="vue-flow-basic-example">
     <Background />
     <MiniMap />
     <Controls />
-    <div style="position: absolute; right: 10px; top: 10px; z-index: 4">
-      <button style="margin-right: 5px" @click="resetTransform">reset transform</button>
-      <button style="margin-right: 5px" @click="updatePos">change pos</button>
-      <button style="margin-right: 5px" @click="toggleclass">toggle class</button>
+    <Panel position="top-right" style="display: flex; gap: 5px">
+      <button @click="resetTransform">reset transform</button>
+      <button @click="updatePos">change pos</button>
+      <button @click="toggleclass">toggle class</button>
       <button @click="logToObject">toObject</button>
-    </div>
+    </Panel>
   </VueFlow>
 </template>

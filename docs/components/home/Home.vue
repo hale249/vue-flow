@@ -7,32 +7,7 @@ const { smaller } = useBreakpoints(breakpointsTailwind)
 
 const isMobile = smaller('md')
 
-const { blobity, reset } = useBlobity()
-
-const usesDark = useDark({
-  storageKey: 'vuepress-color-scheme',
-  selector: 'html',
-})
-
-const dark = ref(false)
-
-onMounted(() => {
-  const html = document.getElementsByTagName('html')![0]
-
-  usesDark.value = html.classList.contains('dark')
-
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      dark.value = html.classList.contains('dark')
-    }
-  })
-
-  observer.observe(html, {
-    attributes: true,
-    attributeOldValue: true,
-    attributeFilter: ['class'],
-  })
-})
+const { blobity } = useBlobity()
 
 onMounted(() => {
   if (isMobile.value) {
@@ -42,30 +17,34 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="relative h-[calc(100vh-var(--vp-nav-height-mobile))] lg:h-[calc(100vh-var(--vp-nav-height))]">
+  <div class="relative min-h-250 h-[calc(100vh-var(--vp-nav-height))] lg:min-h-100 lg:h-[calc(100vh-var(--vp-nav-height)-176px)]">
     <Intro />
   </div>
 </template>
 
-<style>
-button:focus {
-  outline: none;
-}
+<style lang="scss">
+.is-home {
+  h1 {
+    @apply text-2xl md:text-3xl xl:text-4xl mb-4 font-bold;
+  }
 
-h1 {
-  @apply text-xl lg:text-4xl mb-4 font-bold;
-}
+  h2 {
+    @apply mb-4;
+  }
 
-h2 {
-  @apply text-lg lg:text-2xl mb-4 font-semibold;
-}
+  p {
+    @apply text-md lg:text-lg;
+    line-height: inherit;
+    margin: revert;
+  }
 
-p {
-  @apply text-md lg:text-lg;
-}
+  p ~ h1,
+  p ~ h2 {
+    @apply mt-6;
+  }
 
-p ~ h1,
-p ~ h2 {
-  @apply mt-6;
+  button:focus {
+    outline: none;
+  }
 }
 </style>

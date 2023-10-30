@@ -12,25 +12,43 @@
   "bugs": {
     "url": "https://github.com/bcakmakoglu/vue-flow/issues"
   },
+  "keywords": [
+    "vue",
+    "flow",
+    "diagram",
+    "editor",
+    "graph",
+    "node",
+    "link",
+    "port",
+    "slot",
+    "vue3",
+    "composition-api",
+    "vue-flow",
+    "vueflow",
+    "typescript"
+  ],
   "main": "./dist/vue-flow.js",
   "module": "./dist/vue-flow.mjs",
   "types": "./dist/index.d.ts",
   "unpkg": "./dist/vue-flow.iife.js",
   "jsdelivr": "./dist/vue-flow.iife.js",
-  "files": [
-    "dist"
-  ],
-  "sideEffects": false,
-  "scripts": {
-    "build": "vite build",
-    "types": "tsc && shx rm -rf tmp && pnpm lint:dist",
-    "theme": "postcss src/style.css -o dist/style.css && postcss src/theme-default.css -o dist/theme-default.css",
-    "lint": "eslint --ext \".js,.jsx,.ts,.tsx\" --fix --ignore-path ../../.gitignore .",
-    "lint:dist": "eslint --ext \".ts,.tsx\" -c .eslintrc.js --fix ./dist",
-    "prepublishOnly": "shx cp ../../README.md .",
-    "postpublish": "shx rm README.md && git commit -a -m \"chore: bump version\"",
-    "test": "exit 0"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vue-flow.mjs",
+      "require": "./dist/vue-flow.js"
+    },
+    "./dist/style.css": "./dist/style.css",
+    "./dist/theme-default.css": "./dist/theme-default.css"
   },
+  "files": [
+    "dist",
+    "*.d.ts"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
   "peerDependencies": {
     "vue": "^3.2.25"
   },
@@ -41,18 +59,17 @@
     "@vue-flow/minimap": "workspace:*"
   },
   "devDependencies": {
+    "@tooling/eslint-config": "workspace:*",
+    "@tooling/tsconfig": "workspace:*",
+    "@tooling/vite-config": "workspace:*",
     "autoprefixer": "^10.4.13",
     "postcss": "^8.4.21",
     "postcss-cli": "^10.1.0",
-    "postcss-nested": "^6.0.0",
-    "vite": "^4.0.4"
+    "postcss-nested": "^6.0.1",
+    "vue": "^3.2.25"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
-  },
-  "np": {
-    "branch": "master",
-    "message": "v%s"
   }
 }

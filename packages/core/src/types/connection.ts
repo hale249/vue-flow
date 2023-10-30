@@ -70,12 +70,16 @@ export interface ConnectionLineProps {
   targetPosition: Position
   /** The source node of the connection line */
   sourceNode: GraphNode
-  /** The source handle element of the connection line */
-  sourceHandle: HandleElement
+  /** The source handle element (not the DOM element) of the connection line */
+  sourceHandle: HandleElement | null
+  /** The target node of the connection line */
+  targetNode: GraphNode | null
+  /** The target handle element (not the DOM element) of the connection line */
+  targetHandle: HandleElement | null
   /** marker url */
   markerStart: string
   /** marker url */
   markerEnd: string
   /** status of the connection (valid, invalid) */
-  connectionStatus: ConnectionStatus
+  connectionStatus: ConnectionStatus | null
 }

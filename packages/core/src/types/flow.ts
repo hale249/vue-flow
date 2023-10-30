@@ -1,11 +1,12 @@
 import type { CSSProperties } from 'vue'
 import type { KeyFilter } from '@vueuse/core'
 import type { DefaultEdgeOptions, Edge, EdgeUpdatable, GraphEdge } from './edge'
-import type { CoordinateExtent, GraphNode, Node } from './node'
+import type { CoordinateExtent, CoordinateExtentRange, GraphNode, Node } from './node'
 import type { Connection, ConnectionLineOptions, ConnectionLineType, ConnectionMode, Connector } from './connection'
 import type { PanOnScrollMode, ViewportTransform } from './zoom'
 import type { EdgeTypesObject, NodeTypesObject } from './components'
 import type { CustomEvent } from './hooks'
+import type { ValidConnectionFunc } from './handle'
 
 export type ElementData = any
 
@@ -54,7 +55,10 @@ export type CSSVars =
 
 export type ThemeVars = { [key in CSSVars]?: CSSProperties['color'] }
 export type Styles = CSSProperties & ThemeVars & CustomThemeVars
+/** @deprecated will be removed in the next major version */
 export type ClassFunc<ElementType extends FlowElement = FlowElement> = (element: ElementType) => string | void
+
+/** @deprecated will be removed in the next major version */
 export type StyleFunc<ElementType extends FlowElement = FlowElement> = (element: ElementType) => Styles | void
 
 /** Handle Positions */
@@ -65,11 +69,13 @@ export enum Position {
   Bottom = 'bottom',
 }
 
+// todo: Rename to `Point`
 export interface XYPosition {
   x: number
   y: number
 }
 
+// todo: Rename to `AbsolutePoint`
 export type XYZPosition = XYPosition & { z: number }
 
 export interface Dimensions {
@@ -84,7 +90,7 @@ export interface Box extends XYPosition {
 
 export interface Rect extends Dimensions, XYPosition {}
 
-export type SnapGrid = [number, number]
+export type SnapGrid = [x: number, y: number]
 
 export interface SelectionRect extends Rect {
   startX: number
@@ -97,10 +103,13 @@ export enum SelectionMode {
 }
 
 export interface FlowExportObject {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
-  position: [number, number]
+  nodes: Node[]
+  edges: Edge[]
+  /** @deprecated use `viewport` instead */
+  position: [x: number, y: number]
+  /** @deprecated use `viewport` instead */
   zoom: number
+  viewport: ViewportTransform
 }
 
 export interface FlowProps {
@@ -119,6 +128,7 @@ export interface FlowProps {
   connectionLineStyle?: CSSProperties | null
   connectionLineOptions?: ConnectionLineOptions
   connectionRadius?: number
+  isValidConnection?: ValidConnectionFunc | null
   deleteKeyCode?: KeyFilter | null
   selectionKeyCode?: KeyFilter | null
   multiSelectionKeyCode?: KeyFilter | null
@@ -130,15 +140,16 @@ export interface FlowProps {
   edgesUpdatable?: EdgeUpdatable
   nodesDraggable?: boolean
   nodesConnectable?: boolean
+  nodeDragThreshold?: number
   elementsSelectable?: boolean
   selectNodesOnDrag?: boolean
   /** move pane on drag, replaced prop `paneMovable` */
   panOnDrag?: boolean | number[]
   minZoom?: number
   maxZoom?: number
-  defaultViewport?: ViewportTransform
+  defaultViewport?: Partial<ViewportTransform>
   translateExtent?: CoordinateExtent
-  nodeExtent?: CoordinateExtent
+  nodeExtent?: CoordinateExtent | CoordinateExtentRange
   defaultMarkerColor?: string
   zoomOnScroll?: boolean
   zoomOnPinch?: boolean
@@ -146,7 +157,7 @@ export interface FlowProps {
   panOnScrollSpeed?: number
   panOnScrollMode?: PanOnScrollMode
   zoomOnDoubleClick?: boolean
-  /** enable this to prevent vue flow from scrolling inside the container, i.e. allow for the page to scroll */
+  /** If set to false, scrolling inside the viewport will be disabled and instead the page scroll will be used */
   preventScrolling?: boolean
   selectionMode?: SelectionMode
   edgeUpdaterRadius?: number
@@ -179,4 +190,5 @@ export interface FlowProps {
   }
 }
 
+// Todo: Remove in next major version
 export type FlowOptions = FlowProps

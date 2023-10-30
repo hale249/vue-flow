@@ -1,4 +1,6 @@
 import type { Ref } from 'vue'
+import { nextTick } from 'vue'
+import { getDimensions } from '.'
 import type { Actions, GraphNode, HandleElement, Position } from '~/types'
 
 export function getHandleBounds(selector: string, nodeElement: HTMLDivElement, zoom: number): HandleElement[] | undefined {
@@ -31,6 +33,7 @@ export function handleNodeClick(
   removeSelectedNodes: Actions['removeSelectedNodes'],
   nodesSelectionActive: Ref<boolean>,
   unselect = false,
+  nodeEl: HTMLDivElement,
 ) {
   nodesSelectionActive.value = false
 
@@ -38,5 +41,9 @@ export function handleNodeClick(
     addSelectedNodes([node])
   } else if (unselect || (node.selected && multiSelectionActive)) {
     removeSelectedNodes([node])
+
+    nextTick(() => {
+      nodeEl.blur()
+    })
   }
 }

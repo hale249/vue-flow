@@ -1,5 +1,33 @@
 # @vue-flow/controls
 
+## 1.1.0
+
+### Minor Changes
+
+- [#957](https://github.com/bcakmakoglu/vue-flow/pull/957) [`ee1ab495`](https://github.com/bcakmakoglu/vue-flow/commit/ee1ab495f9c33dcee71d6912c02bff1a41b44e6a) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Disable zoom-in / zoom-out btns when max or min zoom is reached
+
+### Patch Changes
+
+- [#952](https://github.com/bcakmakoglu/vue-flow/pull/952) [`095ab6af`](https://github.com/bcakmakoglu/vue-flow/commit/095ab6aff4c4c24f03d1d73987a19894a8d580b1) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - use OR operator to determine `isInteractive` state in controls component
+
+## 1.0.6
+
+### Patch Changes
+
+- [#894](https://github.com/bcakmakoglu/vue-flow/pull/894) [`c0a03c4`](https://github.com/bcakmakoglu/vue-flow/commit/c0a03c4339f05e3ae56299aaecd499838ba77838) Thanks [@github-actions](https://github.com/apps/github-actions)! - Remove border from controls
+
+## 1.0.5
+
+### Patch Changes
+
+- [#865](https://github.com/bcakmakoglu/vue-flow/pull/865) [`9ce7bdc4`](https://github.com/bcakmakoglu/vue-flow/commit/9ce7bdc4908dda4dea299e5f469b252ac20a12ab) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `exports` field to package.json
+
+## 1.0.4
+
+### Patch Changes
+
+- [#716](https://github.com/bcakmakoglu/vue-flow/pull/716) [`1685827d`](https://github.com/bcakmakoglu/vue-flow/commit/1685827d0ea1dc9864f95a1b3a54fbc43a296e5d) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Fix umd pkg names and use the correct vue flow core umd pkg name in plugins
+
 ## 1.0.3
 
 ### Patch Changes

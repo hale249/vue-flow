@@ -1,4 +1,4 @@
-import type { EventHook, EventHookOn, EventHookTrigger } from '@vueuse/core'
+import type { EventHookOn, EventHookTrigger } from '@vueuse/core'
 import type { D3ZoomEvent } from 'd3-zoom'
 import type { GraphEdge } from './edge'
 import type { GraphNode } from './node'
@@ -6,7 +6,8 @@ import type { Connection, OnConnectStartParams } from './connection'
 import type { ViewportTransform } from './zoom'
 import type { EdgeChange, NodeChange } from './changes'
 import type { VueFlowStore } from './store'
-import type { FlowElements } from './flow'
+import type { VueFlowError } from '~/utils/errors'
+import type { EventHookExtended } from '~/utils'
 
 export type MouseTouchEvent = MouseEvent | TouchEvent
 
@@ -58,10 +59,14 @@ export interface FlowEvents {
     event?: MouseEvent | TouchEvent
   } & OnConnectStartParams
   connectEnd: MouseEvent | TouchEvent | undefined
+  clickConnectStart: {
+    event?: MouseEvent | TouchEvent
+  } & OnConnectStartParams
+  clickConnectEnd: MouseEvent | TouchEvent | undefined
   paneReady: VueFlowStore
-  move: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }
-  moveStart: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }
-  moveEnd: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }
+  move: { event: D3ZoomEvent<HTMLDivElement, any> | WheelEvent; flowTransform: ViewportTransform }
+  moveStart: { event: D3ZoomEvent<HTMLDivElement, any> | WheelEvent; flowTransform: ViewportTransform }
+  moveEnd: { event: D3ZoomEvent<HTMLDivElement, any> | WheelEvent; flowTransform: ViewportTransform }
   selectionDragStart: NodeDragEvent
   selectionDrag: NodeDragEvent
   selectionDragStop: NodeDragEvent
@@ -86,72 +91,11 @@ export interface FlowEvents {
   edgeUpdateStart: EdgeMouseEvent
   edgeUpdate: EdgeUpdateEvent
   edgeUpdateEnd: EdgeMouseEvent
-}
-
-export interface Emits {
-  (event: 'nodesChange', changes: NodeChange[]): void
-  (event: 'edgesChange', changes: EdgeChange[]): void
-  (event: 'nodeDoubleClick', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'nodeClick', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'nodeMouseEnter', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'nodeMouseMove', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'nodeMouseLeave', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'nodeContextMenu', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'nodeDragStart', nodeDragEvent: NodeDragEvent): void
-  (event: 'nodeDrag', nodeDragEvent: NodeDragEvent): void
-  (event: 'nodeDragStop', nodeDragEvent: NodeDragEvent): void
-  (event: 'nodesInitialized'): void
-  (event: 'miniMapNodeClick', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'miniMapNodeDoubleClick', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'miniMapNodeMouseEnter', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'miniMapNodeMouseMove', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'miniMapNodeMouseLeave', nodeMouseEvent: NodeMouseEvent): void
-  (event: 'connect', connectionEvent: Connection): void
-  (
-    event: 'connectStart',
-    connectionEvent: {
-      event?: MouseEvent
-    } & OnConnectStartParams,
-  ): void
-  (event: 'connectEnd', connectionEvent?: MouseEvent): void
-  (event: 'moveStart', moveEvent: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }): void
-  (event: 'move', moveEvent: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }): void
-  (event: 'moveEnd', moveEvent: { event: D3ZoomEvent<HTMLDivElement, any>; flowTransform: ViewportTransform }): void
-  (event: 'selectionDragStart', selectionEvent: NodeDragEvent): void
-  (event: 'selectionDrag', selectionEvent: NodeDragEvent): void
-  (event: 'selectionDragStop', selectionEvent: NodeDragEvent): void
-  (event: 'selectionContextMenu', selectionEvent: { event: MouseEvent; nodes: GraphNode[] }): void
-  (event: 'selectionStart', selectionEvent: MouseEvent): void
-  (event: 'selectionEnd', selectionEvent: MouseEvent): void
-  (event: 'viewportChangeStart', viewport: ViewportTransform): void
-  (event: 'viewportChange', viewport: ViewportTransform): void
-  (event: 'viewportChangeEnd', viewport: ViewportTransform): void
-  (event: 'paneReady', paneEvent: VueFlowStore): void
-  (event: 'paneScroll', paneEvent: WheelEvent | undefined): void
-  (event: 'paneClick', paneEvent: MouseEvent): void
-  (event: 'paneContextMenu', paneEvent: MouseEvent): void
-  (event: 'paneMouseEnter', paneEvent: MouseEvent): void
-  (event: 'paneMouseMove', paneEvent: MouseEvent): void
-  (event: 'paneMouseLeave', paneEvent: MouseEvent): void
-  (event: 'edgeContextMenu', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeMouseEnter', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeMouseMove', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeMouseLeave', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeDoubleClick', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeClick', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeUpdateStart', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'edgeUpdate', edgeUpdateEvent: EdgeUpdateEvent): void
-  (event: 'edgeUpdateEnd', edgeMouseEvent: EdgeMouseEvent): void
-  (event: 'updateNodeInternals'): void
-
-  /** v-model event definitions */
-  (event: 'update:modelValue', value: FlowElements): void
-  (event: 'update:nodes', value: GraphNode[]): void
-  (event: 'update:edges', value: GraphEdge[]): void
+  error: VueFlowError
 }
 
 export type FlowHooks = Readonly<{
-  [key in keyof FlowEvents]: EventHook<FlowEvents[key]>
+  [key in keyof FlowEvents]: EventHookExtended<FlowEvents[key]>
 }>
 
 export type FlowHooksOn = Readonly<{

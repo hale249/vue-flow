@@ -1,5 +1,5 @@
-const { readFile, writeFile } = require('fs/promises')
-const { resolve } = require('path')
+const { readFile, writeFile } = require('node:fs/promises')
+const { resolve } = require('node:path')
 
 /**
  * This is a workaround until slots can be properly typed from inside the VueFlow component
@@ -32,14 +32,14 @@ const patchedTypeImports = `import type {
   VueFlowStore,
 } from '../../types'`
 
-const unpatchedSlots = `Record<string, (_: {}) => any> &
-    Record<string, (_: {}) => any> & {
-      'connection-line': (_: {}) => any
-      'zoom-pane': (_: {}) => any
-      'default': (_: {}) => any
+const unpatchedSlots = `Partial<Record<string, (_: {}) => any>> &
+    Partial<Record<string, (_: {}) => any>> & {
+      'connection-line'?(_: {}): any
+      'zoom-pane'?(_: {}): any
+      default?(_: {}): any
     }`
 
-const patchedSlots = `Record<string, (_: any) => any> & {
+const patchedSlots = `Partial<Record<string, (_: any) => any>> & {
     'connection-line': (connectionLineProps: ConnectionLineProps) => any
     'zoom-pane': () => any
     'default': () => any
@@ -49,7 +49,7 @@ const patchedSlots = `Record<string, (_: any) => any> & {
     [key: \`edge-\${string}\`]: (edgeProps: EdgeProps) => any
   }`
 
-const patchSlots = async () => {
+async function patchSlots() {
   const fileContents = await content(filePath)
 
   const patchedFileContents = fileContents.replace(typeImportsString, patchedTypeImports).replace(unpatchedSlots, patchedSlots)

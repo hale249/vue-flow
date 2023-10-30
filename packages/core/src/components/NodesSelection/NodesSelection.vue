@@ -1,20 +1,24 @@
 <script lang="ts" setup>
+import { computed, onMounted, ref } from 'vue'
+import { useDrag, useUpdateNodePositions, useVueFlow } from '../../composables'
+import { arrowKeyDiffs, getRectOfNodes } from '~/utils'
+
 const { emits, viewport, getSelectedNodes, noPanClassName, disableKeyboardA11y, userSelectionActive } = $(useVueFlow())
 
 const updatePositions = useUpdateNodePositions()
 
-const el = ref()
+const el = ref<HTMLDivElement | null>(null)
 
 const dragging = useDrag({
   el,
-  onStart(event, node, nodes) {
-    emits.selectionDragStart({ event, node, nodes })
+  onStart(args) {
+    emits.selectionDragStart(args)
   },
-  onDrag(event, node, nodes) {
-    emits.selectionDrag({ event, node, nodes })
+  onDrag(args) {
+    emits.selectionDrag(args)
   },
-  onStop(event, node, nodes) {
-    emits.selectionDragStop({ event, node, nodes })
+  onStop(args) {
+    emits.selectionDragStop(args)
   },
 })
 
@@ -24,13 +28,13 @@ onMounted(() => {
   }
 })
 
-const selectedNodesBBox = $computed(() => getRectOfNodes(getSelectedNodes))
+const selectedNodesBBox = computed(() => getRectOfNodes(getSelectedNodes))
 
 const innerStyle = computed(() => ({
-  width: `${selectedNodesBBox.width}px`,
-  height: `${selectedNodesBBox.height}px`,
-  top: `${selectedNodesBBox.y}px`,
-  left: `${selectedNodesBBox.x}px`,
+  width: `${selectedNodesBBox.value.width}px`,
+  height: `${selectedNodesBBox.value.height}px`,
+  top: `${selectedNodesBBox.value.y}px`,
+  left: `${selectedNodesBBox.value.x}px`,
 }))
 
 function onContextMenu(event: MouseEvent) {
@@ -38,7 +42,9 @@ function onContextMenu(event: MouseEvent) {
 }
 
 function onKeyDown(event: KeyboardEvent) {
-  if (disableKeyboardA11y) return
+  if (disableKeyboardA11y) {
+    return
+  }
 
   if (arrowKeyDiffs[event.key]) {
     updatePositions(

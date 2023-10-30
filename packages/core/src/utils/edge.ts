@@ -1,8 +1,8 @@
-import { isNumber } from '@vueuse/core'
+import { isNumber, rectToBox } from '.'
 import type { Actions, EdgePositions, GraphEdge, GraphNode, HandleElement, Rect, ViewportTransform, XYPosition } from '~/types'
 import { Position } from '~/types'
 
-export function getHandlePosition(position: Position, rect: Rect, handle?: HandleElement): XYPosition {
+export function getHandlePosition(position: Position, rect: Rect, handle: HandleElement | null): XYPosition {
   const x = (handle?.x ?? 0) + rect.x
   const y = (handle?.y ?? 0) + rect.y
   const width = handle?.width ?? rect.width
@@ -32,22 +32,26 @@ export function getHandlePosition(position: Position, rect: Rect, handle?: Handl
   }
 }
 
-export function getHandle(bounds: HandleElement[] = [], handleId?: string | null): HandleElement | undefined {
-  if (!bounds.length) return undefined
+export function getHandle(bounds: HandleElement[] = [], handleId?: string | null): HandleElement | null {
+  if (!bounds.length) {
+    return null
+  }
 
-  let handle
-  if (!handleId && bounds.length === 1) handle = bounds[0]
-  else if (handleId) handle = bounds.find((d) => d.id === handleId)
+  if (!handleId || bounds.length === 1) {
+    return bounds[0]
+  } else if (handleId) {
+    return bounds.find((d) => d.id === handleId) || null
+  }
 
-  return handle || bounds[0]
+  return null
 }
 
 export function getEdgePositions(
   sourceNode: GraphNode,
-  sourceHandle: HandleElement | undefined,
+  sourceHandle: HandleElement | null,
   sourcePosition: Position,
   targetNode: GraphNode,
-  targetHandle: HandleElement | undefined,
+  targetHandle: HandleElement | null,
   targetPosition: Position,
 ): EdgePositions {
   const sourceHandlePos = getHandlePosition(
@@ -127,40 +131,20 @@ export function isEdgeVisible({
   return overlappingArea > 0
 }
 
-export function groupEdgesByZLevel(edges: GraphEdge[], findNode: Actions['findNode'], elevateEdgesOnSelect = false) {
-  let maxLevel = -1
+export function getEdgeZIndex(edge: GraphEdge, findNode: Actions['findNode'], elevateEdgesOnSelect = false) {
+  const hasZIndex = isNumber(edge.zIndex)
+  let z = hasZIndex ? edge.zIndex! : 0
 
-  const levelLookup = edges.reduce<Record<string, GraphEdge[]>>((tree, edge) => {
-    const hasZIndex = isNumber(edge.zIndex)
-    let z = hasZIndex ? edge.zIndex! : 0
+  const source = findNode(edge.source)
+  const target = findNode(edge.target)
 
-    const source = findNode(edge.source)
-    const target = findNode(edge.target)
+  if (!source || !target) {
+    return 0
+  }
 
-    if (!source || !target) return tree
+  if (elevateEdgesOnSelect) {
+    z = hasZIndex ? edge.zIndex! : Math.max(source.computedPosition.z || 0, target.computedPosition.z || 0)
+  }
 
-    if (elevateEdgesOnSelect) {
-      z = hasZIndex ? edge.zIndex! : Math.max(source.computedPosition.z || 0, target.computedPosition.z || 0)
-    }
-
-    if (tree[z]) {
-      tree[z].push(edge)
-    } else {
-      tree[z] = [edge]
-    }
-
-    maxLevel = z > maxLevel ? z : maxLevel
-
-    return tree
-  }, {})
-
-  return Object.entries(Object.keys(levelLookup).length ? levelLookup : { 0: [] }).map(([key, edges]) => {
-    const level = +key
-
-    return {
-      edges,
-      level,
-      isMaxLevel: level === maxLevel,
-    }
-  })
+  return z
 }

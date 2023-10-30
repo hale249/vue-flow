@@ -118,6 +118,14 @@ export const routes: RouterOptions['routes'] = [
     path: '/rgb',
     component: () => import('./src/RGBFlow/RGBFlow.vue'),
   },
+  {
+    path: '/easy-connect',
+    component: () => import('./src/EasyConnect/EasyConnect.vue'),
+  },
+  {
+    path: '/pinia',
+    component: () => import('./src/Pinia/PiniaExample.vue'),
+  },
 ]
 
 export const router = createRouter({

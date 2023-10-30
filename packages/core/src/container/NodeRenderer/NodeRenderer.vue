@@ -1,6 +1,11 @@
 <script lang="ts" setup>
+import { getCurrentInstance, inject, nextTick, onBeforeUnmount, onMounted, ref, resolveComponent } from 'vue'
+import { until } from '@vueuse/core'
 import { NodeWrapper } from '../../components'
 import type { GraphNode, HandleConnectable, NodeComponent } from '../../types'
+import { Slots } from '../../context'
+import { useVueFlow } from '../../composables'
+import { ErrorCode, VueFlowError } from '../../utils'
 
 const slots = inject(Slots)
 
@@ -9,51 +14,66 @@ const {
   nodesFocusable,
   elementsSelectable,
   nodesConnectable,
-  nodes,
   getNodes,
   getNodesInitialized,
+  areNodesInitialized,
   getNodeTypes,
   updateNodeDimensions,
   emits,
-} = $(useVueFlow())
+} = useVueFlow()
 
-let resizeObserver = $ref<ResizeObserver>()
+const resizeObserver = ref<ResizeObserver>()
 
-until(() => nodes.length > 0 && getNodesInitialized.length === nodes.length)
+const instance = getCurrentInstance()
+
+until(() => areNodesInitialized.value)
   .toBe(true)
   .then(() => {
     nextTick(() => {
-      emits.nodesInitialized(getNodesInitialized)
+      emits.nodesInitialized(getNodesInitialized.value)
     })
   })
 
 onMounted(() => {
-  resizeObserver = new ResizeObserver((entries) => {
+  resizeObserver.value = new ResizeObserver((entries) => {
     const updates = entries.map((entry) => {
       const id = entry.target.getAttribute('data-id') as string
 
       return {
         id,
         nodeElement: entry.target as HTMLDivElement,
+        forceUpdate: true,
       }
     })
 
-    updateNodeDimensions(updates)
+    nextTick(() => updateNodeDimensions(updates))
   })
 })
 
-onBeforeUnmount(() => resizeObserver?.disconnect())
+onBeforeUnmount(() => resizeObserver.value?.disconnect())
 
-const draggable = (nodeDraggable?: boolean) => (typeof nodeDraggable === 'undefined' ? nodesDraggable : nodeDraggable)
-const selectable = (nodeSelectable?: boolean) => (typeof nodeSelectable === 'undefined' ? elementsSelectable : nodeSelectable)
-const connectable = (nodeConnectable?: HandleConnectable) =>
-  typeof nodeConnectable === 'undefined' ? nodesConnectable : nodeConnectable
-const focusable = (nodeFocusable?: boolean) => (typeof nodeFocusable === 'undefined' ? nodesFocusable : nodeFocusable)
+function draggable(nodeDraggable?: boolean) {
+  return typeof nodeDraggable === 'undefined' ? nodesDraggable.value : nodeDraggable
+}
+function selectable(nodeSelectable?: boolean) {
+  return typeof nodeSelectable === 'undefined' ? elementsSelectable.value : nodeSelectable
+}
+function connectable(nodeConnectable?: HandleConnectable) {
+  return typeof nodeConnectable === 'undefined' ? nodesConnectable.value : nodeConnectable
+}
+function focusable(nodeFocusable?: boolean) {
+  return typeof nodeFocusable === 'undefined' ? nodesFocusable.value : nodeFocusable
+}
 
 function getType(type?: string, template?: GraphNode['template']) {
   const name = type || 'default'
-  let nodeType = template ?? getNodeTypes[name]
-  const instance = getCurrentInstance()
+
+  const slot = slots?.[`node-${name}`]
+  if (slot) {
+    return slot
+  }
+
+  let nodeType = template ?? getNodeTypes.value[name]
 
   if (typeof nodeType === 'string') {
     if (instance) {
@@ -63,15 +83,14 @@ function getType(type?: string, template?: GraphNode['template']) {
       }
     }
   }
-  if (typeof nodeType !== 'string') return nodeType
 
-  const slot = slots?.[`node-${name}`]
-  if (!slot) {
-    warn(`Node type "${type}" not found and no node-slot detected. Using fallback type "default".`)
-    return false
+  if (nodeType && typeof nodeType !== 'string') {
+    return nodeType
   }
 
-  return slot
+  emits.error(new VueFlowError(ErrorCode.NODE_TYPE_MISSING, nodeType))
+
+  return false
 }
 </script>
 

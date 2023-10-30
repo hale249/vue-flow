@@ -1,5 +1,5 @@
 <script setup>
-import { Panel, PanelPosition, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
+import { Panel, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
@@ -32,7 +32,7 @@ onNodeDragStop((e) => console.log('drag stop', e))
  * onConnect is called when a new connection is created.
  * You can add additional properties to your new edge (like a type or label) or block the creation altogether
  */
-onConnect((params) => addEdges([params]))
+onConnect((params) => addEdges(params))
 
 const dark = ref(false)
 
@@ -40,8 +40,8 @@ const dark = ref(false)
  * To update node properties you can simply use your elements v-model and mutate the elements directly
  * Changes should always be reflected on the graph reactively, without the need to overwrite the elements
  */
-const updatePos = () =>
-  elements.value.forEach((el) => {
+function updatePos() {
+  return elements.value.forEach((el) => {
     if (isNode(el)) {
       el.position = {
         x: Math.random() * 400,
@@ -49,27 +49,36 @@ const updatePos = () =>
       }
     }
   })
+}
 
 /**
  * toObject transforms your current graph data to an easily persist-able object
  */
-const logToObject = () => console.log(toObject())
+function logToObject() {
+  return console.log(toObject())
+}
 
 /**
  * Resets the current viewpane transformation (zoom & pan)
  */
-const resetTransform = () => setTransform({ x: 0, y: 0, zoom: 1 })
+function resetTransform() {
+  return setTransform({ x: 0, y: 0, zoom: 1 })
+}
 
-const toggleClass = () => (dark.value = !dark.value)
+function toggleClass() {
+  return (dark.value = !dark.value)
+}
 </script>
 
 <template>
   <VueFlow v-model="elements" :class="{ dark }" class="basicflow" :default-viewport="{ zoom: 1.5 }" :min-zoom="0.2" :max-zoom="4">
     <Background :pattern-color="dark ? '#FFFFFB' : '#aaa'" gap="8" />
+
     <MiniMap />
+
     <Controls />
 
-    <Panel :position="PanelPosition.TopRight" class="controls">
+    <Panel position="top-right" class="controls">
       <button style="background-color: #113285; color: white" title="Reset Transform" @click="resetTransform">
         <svg width="16" height="16" viewBox="0 0 32 32">
           <path fill="#FFFFFB" d="M18 28A12 12 0 1 0 6 16v6.2l-3.6-3.6L1 20l6 6l6-6l-1.4-1.4L8 22.2V16a10 10 0 1 1 10 10Z" />

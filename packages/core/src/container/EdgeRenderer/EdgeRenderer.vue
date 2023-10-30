@@ -1,70 +1,48 @@
 <script lang="ts" setup>
+import { getCurrentInstance, inject, resolveComponent } from 'vue'
 import EdgeWrapper from '../../components/Edges/EdgeWrapper'
-import ConnectionLine from '../../components/ConnectionLine/ConnectionLine.vue'
+import ConnectionLine from '../../components/ConnectionLine'
 import type { EdgeComponent, EdgeUpdatable, GraphEdge } from '../../types'
+import { Slots } from '../../context'
+import { useVueFlow } from '../../composables'
+import { ErrorCode, VueFlowError, getEdgeZIndex } from '../../utils'
 import MarkerDefinitions from './MarkerDefinitions.vue'
 
 const slots = inject(Slots)
 
 const {
-  connectionStartHandle,
-  nodesConnectable,
   edgesUpdatable,
   edgesFocusable,
   elementsSelectable,
-  getSelectedNodes,
   findNode,
   getEdges,
-  getNodesInitialized,
   getEdgeTypes,
   elevateEdgesOnSelect,
-} = $(useVueFlow())
+  dimensions,
+  emits,
+} = useVueFlow()
 
-const sourceNode = $(
-  controlledComputed(
-    () => connectionStartHandle?.nodeId,
-    () => {
-      if (connectionStartHandle?.nodeId) return findNode(connectionStartHandle.nodeId)
+const instance = getCurrentInstance()
 
-      return false
-    },
-  ),
-)
-
-const connectionLineVisible = $(
-  controlledComputed(
-    () => connectionStartHandle?.nodeId,
-    () =>
-      !!(
-        sourceNode &&
-        (typeof sourceNode.connectable === 'undefined' ? nodesConnectable : sourceNode.connectable) &&
-        connectionStartHandle?.nodeId &&
-        connectionStartHandle?.type
-      ),
-  ),
-)
-
-const groups = controlledComputed(
-  [
-    () => getEdges.map((e) => e.zIndex),
-    () => (elevateEdgesOnSelect ? [getSelectedNodes.length] : [0]),
-    () => (elevateEdgesOnSelect ? getNodesInitialized.map((n) => n.computedPosition.z) : []),
-  ],
-  () => groupEdgesByZLevel(getEdges, findNode, elevateEdgesOnSelect),
-)
-
-onBeforeUnmount(() => {
-  stop?.()
-})
-
-const selectable = (edgeSelectable?: boolean) => (typeof edgeSelectable === 'undefined' ? elementsSelectable : edgeSelectable)
-const updatable = (edgeUpdatable?: EdgeUpdatable) => (typeof edgeUpdatable === 'undefined' ? edgesUpdatable : edgeUpdatable)
-const focusable = (edgeFocusable?: boolean) => (typeof edgeFocusable === 'undefined' ? edgesFocusable : edgeFocusable)
+function selectable(edgeSelectable?: boolean) {
+  return typeof edgeSelectable === 'undefined' ? elementsSelectable.value : edgeSelectable
+}
+function updatable(edgeUpdatable?: EdgeUpdatable) {
+  return typeof edgeUpdatable === 'undefined' ? edgesUpdatable.value : edgeUpdatable
+}
+function focusable(edgeFocusable?: boolean) {
+  return typeof edgeFocusable === 'undefined' ? edgesFocusable.value : edgeFocusable
+}
 
 function getType(type?: string, template?: GraphEdge['template']) {
   const name = type || 'default'
-  let edgeType = template ?? getEdgeTypes[name]
-  const instance = getCurrentInstance()
+
+  const slot = slots?.[`edge-${name}`]
+  if (slot) {
+    return slot
+  }
+
+  let edgeType = template ?? getEdgeTypes.value[name]
 
   if (typeof edgeType === 'string') {
     if (instance) {
@@ -74,15 +52,14 @@ function getType(type?: string, template?: GraphEdge['template']) {
       }
     }
   }
-  if (edgeType && typeof edgeType !== 'string') return edgeType
 
-  const slot = slots?.[`edge-${name}`]
-  if (!slot) {
-    warn(`Edge type "${type}" not found and no edge-slot detected. Using fallback type "default".`)
-    return false
+  if (edgeType && typeof edgeType !== 'string') {
+    return edgeType
   }
 
-  return slot
+  emits.error(new VueFlowError(ErrorCode.EDGE_TYPE_MISSING, edgeType))
+
+  return false
 }
 </script>
 
@@ -94,26 +71,28 @@ export default {
 </script>
 
 <template>
-  <template v-for="group of groups" :key="group.level">
-    <svg class="vue-flow__edges vue-flow__container" :style="`z-index: ${group.level}`">
-      <MarkerDefinitions v-if="group.isMaxLevel" />
-      <g>
-        <EdgeWrapper
-          v-for="edge of group.edges"
-          :id="edge.id"
-          :key="edge.id"
-          :edge="edge"
-          :type="getType(edge.type, edge.template)"
-          :name="edge.type || 'default'"
-          :selectable="selectable(edge.selectable)"
-          :updatable="updatable(edge.updatable)"
-          :focusable="focusable(edge.focusable)"
-        />
-      </g>
+  <template v-if="dimensions.width && dimensions.height">
+    <svg class="vue-flow__edges vue-flow__container">
+      <MarkerDefinitions />
     </svg>
-  </template>
 
-  <svg v-if="connectionLineVisible && !!sourceNode" class="vue-flow__edges vue-flow__connectionline vue-flow__container">
-    <ConnectionLine :source-node="sourceNode" />
-  </svg>
+    <svg
+      v-for="edge of getEdges"
+      :key="edge.id"
+      class="vue-flow__edges vue-flow__container"
+      :style="{ zIndex: getEdgeZIndex(edge, findNode, elevateEdgesOnSelect) }"
+    >
+      <EdgeWrapper
+        :id="edge.id"
+        :edge="edge"
+        :type="getType(edge.type, edge.template)"
+        :name="edge.type || 'default'"
+        :selectable="selectable(edge.selectable)"
+        :updatable="updatable(edge.updatable)"
+        :focusable="focusable(edge.focusable)"
+      />
+    </svg>
+
+    <ConnectionLine />
+  </template>
 </template>

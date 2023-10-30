@@ -1,6 +1,8 @@
-import type { Ref } from 'vue'
-import type { KeyFilter, KeyPredicate, MaybeRef } from '@vueuse/core'
-import { isBoolean, isFunction } from '@vueuse/core'
+import { ref, watch } from 'vue'
+import type { KeyFilter, KeyPredicate, MaybeRefOrGetter } from '@vueuse/core'
+import { onKeyStroke, toValue, useEventListener } from '@vueuse/core'
+import { useWindow } from './useWindow'
+import { isBoolean, isFunction, isString } from '~/utils'
 
 export function isInputDOMNode(event: KeyboardEvent): boolean {
   const target = (event.composedPath?.()?.[0] || event.target) as HTMLElement
@@ -18,83 +20,129 @@ function wasModifierPressed(event: KeyboardEvent) {
   return event.ctrlKey || event.metaKey || event.shiftKey
 }
 
-function createKeyPredicate(keyFilter: KeyFilter, pressedKeys: Set<string>): KeyPredicate {
-  return (event: KeyboardEvent) =>
-    (keyFilter as string[]).some((key) => {
-      const keyCombination = key.split('+').map((k) => k.trim().toLowerCase())
+function isKeyMatch(pressedKey: string, keyToMatch: string, pressedKeys: Set<string>, isKeyUp: boolean) {
+  const keyCombination = keyToMatch.split('+').map((k) => k.trim().toLowerCase())
 
-      if (keyCombination.length === 1) {
-        return event.key === key
-      } else {
-        pressedKeys.add(event.key.toLowerCase())
-        return keyCombination.every((key) => pressedKeys.has(key))
-      }
-    })
+  if (keyCombination.length === 1) {
+    return pressedKey === keyToMatch
+  } else {
+    if (isKeyUp) {
+      pressedKeys.delete(pressedKey.toLowerCase())
+    } else {
+      pressedKeys.add(pressedKey.toLowerCase())
+    }
+
+    return keyCombination.every(
+      (key, index) => pressedKeys.has(key) && Array.from(pressedKeys.values())[index] === keyCombination[index],
+    )
+  }
 }
 
-export default (keyFilter: MaybeRef<KeyFilter | null>, onChange?: (keyPressed: boolean) => void): Ref<boolean> => {
+function createKeyPredicate(keyFilter: string | string[], pressedKeys: Set<string>): KeyPredicate {
+  return (event: KeyboardEvent) => {
+    // if the keyFilter is an array of multiple keys, we need to check each possible key combination
+    if (Array.isArray(keyFilter)) {
+      return keyFilter.some((key) => isKeyMatch(event.key, key, pressedKeys, event.type === 'keyup'))
+    }
+
+    // if the keyFilter is a string, we need to check if the key matches the string
+    return isKeyMatch(event.key, keyFilter, pressedKeys, event.type === 'keyup')
+  }
+}
+
+/**
+ * Reactive key press state
+ *
+ * @param keyFilter - Can be a boolean, a string or an array of strings. If it's a boolean, it will always return that value. If it's a string, it will return true if the key is pressed. If it's an array of strings, it will return true if any of the keys are pressed, or a combination is pressed (e.g. ['ctrl+a', 'ctrl+b'])
+ * @param onChange - Callback function that will be called when the key state changes
+ */
+export function useKeyPress(keyFilter: MaybeRefOrGetter<KeyFilter | null>, onChange?: (keyPressed: boolean) => void) {
   const window = useWindow()
 
-  let isPressed = $ref(unref(keyFilter) === true)
+  const isPressed = ref(toValue(keyFilter) === true)
 
-  let modifierPressed = $ref(false)
+  let modifierPressed = false
 
-  const pressedKeys = $ref<Set<string>>(new Set())
+  const pressedKeys = new Set<string>()
 
-  watch($$(isPressed), () => {
-    if (onChange && typeof onChange === 'function') onChange(isPressed)
+  watch(isPressed, () => {
+    onChange?.(isPressed.value)
   })
 
-  watchEffect(() => {
-    let unrefKeyFilter = unref(keyFilter)
+  watch(
+    () => toValue(keyFilter),
+    (nextKeyFilter, previousKeyFilter) => {
+      if (window && typeof window.addEventListener !== 'undefined') {
+        useEventListener(window, 'blur', () => {
+          isPressed.value = false
+        })
+      }
 
-    if (typeof window.addEventListener !== 'undefined') {
-      useEventListener(window, 'blur', () => {
-        isPressed = false
-      })
-    }
+      // if the previous keyFilter was a boolean but is now something else, we need to reset the isPressed value
+      if (isBoolean(previousKeyFilter) && !isBoolean(nextKeyFilter)) {
+        reset()
+      }
 
-    if (isBoolean(unrefKeyFilter)) {
-      isPressed = unrefKeyFilter
-      return
-    }
+      // if the keyFilter is null, we just set the isPressed value to false
+      if (nextKeyFilter === null) {
+        reset()
+        return
+      }
 
-    if (Array.isArray(unrefKeyFilter)) {
-      unrefKeyFilter = createKeyPredicate(unrefKeyFilter, pressedKeys)
-    }
+      // if the keyFilter is a boolean, we just set the isPressed value to that boolean
+      if (isBoolean(nextKeyFilter)) {
+        isPressed.value = nextKeyFilter
+        return
+      }
 
-    if (unrefKeyFilter) {
-      onKeyStroke(
-        unrefKeyFilter,
-        (e) => {
-          modifierPressed = wasModifierPressed(e)
+      if (Array.isArray(nextKeyFilter) || (isString(nextKeyFilter) && nextKeyFilter.includes('+'))) {
+        nextKeyFilter = createKeyPredicate(nextKeyFilter, pressedKeys)
+      }
 
-          if (!modifierPressed && isInputDOMNode(e)) return
+      if (nextKeyFilter) {
+        onKeyStroke(
+          nextKeyFilter,
+          (e) => {
+            modifierPressed = wasModifierPressed(e)
 
-          e.preventDefault()
+            if (!modifierPressed && isInputDOMNode(e)) {
+              return
+            }
 
-          isPressed = true
-        },
-        { eventName: 'keydown' },
-      )
+            e.preventDefault()
 
-      onKeyStroke(
-        unrefKeyFilter,
-        (e) => {
-          if (isPressed) {
-            if (!modifierPressed && isInputDOMNode(e)) return
+            isPressed.value = true
+          },
+          { eventName: 'keydown' },
+        )
 
-            modifierPressed = false
+        onKeyStroke(
+          nextKeyFilter,
+          (e) => {
+            if (isPressed.value) {
+              if (!modifierPressed && isInputDOMNode(e)) {
+                return
+              }
 
-            pressedKeys.clear()
+              reset()
+            }
+          },
+          { eventName: 'keyup' },
+        )
+      }
+    },
+    {
+      immediate: true,
+    },
+  )
 
-            isPressed = false
-          }
-        },
-        { eventName: 'keyup' },
-      )
-    }
-  })
+  return isPressed
 
-  return $$(isPressed)
+  function reset() {
+    modifierPressed = false
+
+    pressedKeys.clear()
+
+    isPressed.value = false
+  }
 }

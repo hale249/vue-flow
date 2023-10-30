@@ -1,0 +1,26 @@
+{
+  "name": "@vue-flow/tests",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "cypress run --component",
+    "open": "cypress open",
+    "lint": "eslint --ext .js,.ts ./"
+  },
+  "dependencies": {
+    "@vue-flow/background": "workspace:*",
+    "@vue-flow/controls": "workspace:*",
+    "@vue-flow/core": "workspace:*",
+    "@vue-flow/minimap": "workspace:*"
+  },
+  "devDependencies": {
+    "@tooling/eslint-config": "workspace:*",
+    "@tooling/tsconfig": "workspace:*",
+    "@vitejs/plugin-vue": "^4.2.3",
+    "cypress": "^12.12.0",
+    "eslint-plugin-cypress": "^2.13.3",
+    "typescript": "^4.9.5",
+    "vite": "^4.3.7",
+    "vue": "^3.2.25"
+  }
+}

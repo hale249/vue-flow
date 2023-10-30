@@ -1,12 +1,25 @@
-import { isNumber } from '@vueuse/shared'
-import type { Actions, CoordinateExtent, ExtendedParentExtent, GraphNode, NodeDragItem, XYPosition } from '~/types'
+import { markRaw } from 'vue'
+import { ErrorCode, VueFlowError, clampPosition, isNumber, isParentSelected } from '.'
+import type {
+  Actions,
+  CoordinateExtent,
+  CoordinateExtentRange,
+  Dimensions,
+  GraphNode,
+  NodeDragItem,
+  State,
+  XYPosition,
+} from '~/types'
 
 export function hasSelector(target: Element, selector: string, node: Element): boolean {
   let current = target
 
   do {
-    if (current && current.matches(selector)) return true
-    else if (current === node) return false
+    if (current && current.matches(selector)) {
+      return true
+    } else if (current === node) {
+      return false
+    }
 
     current = current.parentElement as Element
   } while (current)
@@ -40,6 +53,7 @@ export function getDragItems(
         extent: n.extent,
         parentNode: n.parentNode,
         dimensions: n.dimensions,
+        expandParent: n.expandParent,
       }),
     )
 }
@@ -53,26 +67,40 @@ export function getEventHandlerParams({
   dragItems: NodeDragItem[]
   findNode: Actions['findNode']
 }): [GraphNode, GraphNode[]] {
-  const extendedDragItems: GraphNode[] = dragItems.map((n) => findNode(n.id)!)
+  const extendedDragItems = dragItems.reduce((acc, dragItem) => {
+    const node = findNode(dragItem.id)
+
+    if (node) {
+      acc.push(node)
+    }
+
+    return acc
+  }, [] as GraphNode[])
 
   return [id ? extendedDragItems.find((n) => n.id === id)! : extendedDragItems[0], extendedDragItems]
 }
 
-function getExtentPadding(padding: number[]) {
-  switch (padding.length) {
-    case 1:
-      return [padding[0], padding[0], padding[0], padding[0]]
-    case 2:
-      return [padding[0], padding[1], padding[0], padding[1]]
-    case 3:
-      return [padding[0], padding[1], padding[2], padding[1]]
-    default:
-      return padding || [0, 0, 0, 0]
+function getExtentPadding(padding: CoordinateExtentRange['padding']): [number, number, number, number] {
+  if (Array.isArray(padding)) {
+    switch (padding.length) {
+      case 1:
+        return [padding[0], padding[0], padding[0], padding[0]]
+      case 2:
+        return [padding[0], padding[1], padding[0], padding[1]]
+      case 3:
+        return [padding[0], padding[1], padding[2], padding[1]]
+      case 4:
+        return padding
+      default:
+        return [0, 0, 0, 0]
+    }
   }
+
+  return [padding, padding, padding, padding]
 }
 
 function getParentExtent(
-  currentExtent: ExtendedParentExtent | 'parent',
+  currentExtent: CoordinateExtentRange | 'parent',
   node: GraphNode | NodeDragItem,
   parent: GraphNode,
 ): CoordinateExtent | false {
@@ -88,8 +116,8 @@ function getParentExtent(
     return [
       [parent.computedPosition.x + left, parent.computedPosition.y + top],
       [
-        parent.computedPosition.x + (parent.dimensions.width - node.dimensions.width) - right,
-        parent.computedPosition.y + (parent.dimensions.height - node.dimensions.height) - bottom,
+        parent.computedPosition.x + parent.dimensions.width - right,
+        parent.computedPosition.y + parent.dimensions.height - bottom,
       ],
     ]
   }
@@ -97,40 +125,71 @@ function getParentExtent(
   return false
 }
 
-export function getExtent<T extends NodeDragItem | GraphNode>(item: T, extent?: CoordinateExtent, parent?: GraphNode) {
+export function getExtent<T extends NodeDragItem | GraphNode>(
+  item: T,
+  onError: State['hooks']['error']['trigger'],
+  extent?: State['nodeExtent'],
+  parent?: GraphNode,
+) {
   let currentExtent = item.extent || extent
 
-  if (item.extent === 'parent' || (!Array.isArray(item.extent) && item.extent?.range === 'parent')) {
+  if (
+    (currentExtent === 'parent' || (!Array.isArray(currentExtent) && currentExtent?.range === 'parent')) &&
+    !item.expandParent
+  ) {
     if (item.parentNode && parent && item.dimensions.width && item.dimensions.height) {
-      const parentExtent = getParentExtent(item.extent, item, parent)
+      const parentExtent = getParentExtent(currentExtent, item, parent)
 
       if (parentExtent) {
         currentExtent = parentExtent
       }
     } else {
-      warn('Only child nodes can use a parent extent.')
+      onError(new VueFlowError(ErrorCode.NODE_EXTENT_INVALID, item.id))
 
       currentExtent = extent
     }
-  } else if (Array.isArray(item.extent) && item.extent && parent) {
-    const parentX = parent.computedPosition.x
-    const parentY = parent.computedPosition.y
+  } else if (Array.isArray(currentExtent)) {
+    const parentX = parent?.computedPosition.x || 0
+    const parentY = parent?.computedPosition.y || 0
 
     currentExtent = [
-      [item.extent[0][0] + parentX, item.extent[0][1] + parentY],
-      [item.extent[1][0] + parentX, item.extent[1][1] + parentY],
+      [currentExtent[0][0] + parentX, currentExtent[0][1] + parentY],
+      [currentExtent[1][0] + parentX, currentExtent[1][1] + parentY],
+    ]
+  } else if (currentExtent !== 'parent' && currentExtent?.range && Array.isArray(currentExtent.range)) {
+    const [top, right, bottom, left] = getExtentPadding(currentExtent.padding)
+
+    const parentX = parent?.computedPosition.x || 0
+    const parentY = parent?.computedPosition.y || 0
+
+    currentExtent = [
+      [currentExtent.range[0][0] + parentX + left, currentExtent.range[0][1] + parentY + top],
+      [currentExtent.range[1][0] + parentX - right, currentExtent.range[1][1] + parentY - bottom],
     ]
   }
 
-  return currentExtent as CoordinateExtent
+  return (
+    currentExtent === 'parent'
+      ? [
+          [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
+          [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
+        ]
+      : currentExtent
+  ) as CoordinateExtent
 }
+
+function clampNodeExtent({ width, height }: Dimensions, extent: CoordinateExtent): CoordinateExtent {
+  return [extent[0], [extent[1][0] - (width || 0), extent[1][1] - (height || 0)]]
+}
+
 export function calcNextPosition(
   node: GraphNode | NodeDragItem,
   nextPosition: XYPosition,
-  nodeExtent?: CoordinateExtent,
+  onError: State['hooks']['error']['trigger'],
+  nodeExtent?: State['nodeExtent'],
   parentNode?: GraphNode,
 ) {
-  const extent = getExtent(node, nodeExtent, parentNode)
+  const extent = clampNodeExtent(node.dimensions, getExtent(node, onError, nodeExtent, parentNode))
 
   const clampedPos = clampPosition(nextPosition, extent)
 

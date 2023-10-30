@@ -8,12 +8,12 @@ import Additional from './flows/Additional.vue'
 const el = ref<HTMLDivElement>()
 const instances: VueFlowStore[] = []
 
-const onLoad = (instance: VueFlowStore) => {
+function onLoad(instance: VueFlowStore) {
   instances.push(instance)
   instance.fitView()
 }
 
-const fitViews = () => {
+function fitViews() {
   instances.forEach((i) => i.fitView())
 }
 
@@ -27,7 +27,7 @@ onBeforeUnmount(stop)
 <template>
   <div ref="el" class="w-full">
     <div
-      class="flex flex-col divide-y divide-gray-500 md:divide-y-0 gap-12 md:gap-24 lg:gap-36 max-w-9/12 md:max-w-11/12 lg:max-w-9/12 m-auto py-12 md:py-24 text-center md:text-left"
+      class="flex flex-col divide-y divide-secondary md:divide-y-0 gap-12 md:gap-24 lg:gap-36 max-w-5/6 2xl:max-w-7xl m-auto py-12 md:py-24 text-center md:text-left"
     >
       <div class="flex flex-col md:flex-row gap-12 md:gap-24">
         <Basic @pane="onLoad" />

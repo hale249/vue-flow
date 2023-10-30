@@ -4,6 +4,7 @@
 
 .vue-flow__controls-button {
   background: #fefefe;
+  border: none;
   border-bottom: 1px solid #eee;
   box-sizing: content-box;
   display: flex;
@@ -24,4 +25,13 @@
 
 .vue-flow__controls-button:hover {
   background: #f4f4f4;
+}
+
+
+.vue-flow__controls-button:disabled {
+  pointer-events: none;
+}
+
+.vue-flow__controls-button:disabled svg {
+  fill-opacity: 0.4;
 }

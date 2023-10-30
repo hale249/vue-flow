@@ -1,5 +1,33 @@
 # @vue-flow/minimap
 
+## 1.2.0
+
+### Minor Changes
+
+- [#1066](https://github.com/bcakmakoglu/vue-flow/pull/1066) [`f1421f43`](https://github.com/bcakmakoglu/vue-flow/commit/f1421f437dfea55bdeeaf9b5471f2ac466ce64be) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `offsetScale` prop
+
+### Patch Changes
+
+- [#1066](https://github.com/bcakmakoglu/vue-flow/pull/1066) [`eac7308b`](https://github.com/bcakmakoglu/vue-flow/commit/eac7308bebeb5663ff2b17f82e5e3339618bb292) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Pass missing minimap node props
+
+## 1.1.1
+
+### Patch Changes
+
+- [#865](https://github.com/bcakmakoglu/vue-flow/pull/865) [`9ce7bdc4`](https://github.com/bcakmakoglu/vue-flow/commit/9ce7bdc4908dda4dea299e5f469b252ac20a12ab) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `exports` field to package.json
+
+## 1.1.0
+
+### Minor Changes
+
+- [#801](https://github.com/bcakmakoglu/vue-flow/pull/801) [`38270cf5`](https://github.com/bcakmakoglu/vue-flow/commit/38270cf5c33d16ba5d832a2d80499642c1d1a6b0) Thanks [@github-actions](https://github.com/apps/github-actions)! - Add `inversePan` and `zoomStep` props
+
+## 1.0.4
+
+### Patch Changes
+
+- [#716](https://github.com/bcakmakoglu/vue-flow/pull/716) [`1685827d`](https://github.com/bcakmakoglu/vue-flow/commit/1685827d0ea1dc9864f95a1b3a54fbc43a296e5d) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Fix umd pkg names and use the correct vue flow core umd pkg name in plugins
+
 ## 1.0.3
 
 ### Patch Changes

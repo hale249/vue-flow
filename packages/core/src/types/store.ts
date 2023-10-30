@@ -23,11 +23,11 @@ import type {
   Connector,
 } from './connection'
 import type { DefaultEdgeOptions, Edge, EdgeUpdatable, GraphEdge } from './edge'
-import type { CoordinateExtent, GraphNode, Node } from './node'
+import type { CoordinateExtent, CoordinateExtentRange, GraphNode, Node } from './node'
 import type { D3Selection, D3Zoom, D3ZoomHandler, PanOnScrollMode, ViewportFunctions, ViewportTransform } from './zoom'
 import type { CustomEvent, FlowHooks, FlowHooksEmit, FlowHooksOn } from './hooks'
 import type { EdgeChange, NodeChange, NodeDragItem } from './changes'
-import type { StartHandle } from './handle'
+import type { ConnectingHandle, ValidConnectionFunc } from './handle'
 
 export interface UpdateNodeDimensionsParams {
   id: string
@@ -57,10 +57,10 @@ export interface State extends Omit<FlowOptions, 'id' | 'modelValue'> {
   minZoom: number
   /** use setMaxZoom action to change maxZoom */
   maxZoom: number
-  defaultViewport: ViewportTransform
+  defaultViewport: Partial<ViewportTransform>
   /** use setTranslateExtent action to change translateExtent */
   translateExtent: CoordinateExtent
-  nodeExtent: CoordinateExtent
+  nodeExtent: CoordinateExtent | CoordinateExtentRange
 
   /** viewport dimensions - do not change! */
   readonly dimensions: Dimensions
@@ -84,11 +84,13 @@ export interface State extends Omit<FlowOptions, 'id' | 'modelValue'> {
   connectionLineType: ConnectionLineType | null
   /** @deprecated use {@link ConnectionLineOptions.style} */
   connectionLineStyle: CSSProperties | null
-  connectionStartHandle: StartHandle | null
-  connectionClickStartHandle: StartHandle | null
+  connectionStartHandle: ConnectingHandle | null
+  connectionEndHandle: ConnectingHandle | null
+  connectionClickStartHandle: ConnectingHandle | null
   connectionPosition: XYPosition
   connectionRadius: number
   connectionStatus: ConnectionStatus | null
+  isValidConnection: ValidConnectionFunc | null
 
   connectOnClick: boolean
   edgeUpdaterRadius: number
@@ -103,6 +105,7 @@ export interface State extends Omit<FlowOptions, 'id' | 'modelValue'> {
   nodesFocusable: boolean
   nodesDraggable: boolean
   nodesConnectable: boolean
+  nodeDragThreshold: number
 
   elementsSelectable: boolean
   selectNodesOnDrag: boolean
@@ -129,7 +132,7 @@ export interface State extends Omit<FlowOptions, 'id' | 'modelValue'> {
   noWheelClassName: 'nowheel' | string
   noPanClassName: 'nopan' | string
 
-  defaultEdgeOptions?: DefaultEdgeOptions
+  defaultEdgeOptions: DefaultEdgeOptions | undefined
 
   elevateEdgesOnSelect: boolean
   elevateNodesOnSelect: boolean
@@ -140,9 +143,6 @@ export interface State extends Omit<FlowOptions, 'id' | 'modelValue'> {
   disableKeyboardA11y: boolean
 
   ariaLiveMessage: string
-
-  /** current vue flow version you're using */
-  readonly vueFlowVersion: string
 }
 
 export type SetElements = (elements: Elements | ((elements: FlowElements) => Elements)) => void
@@ -151,18 +151,26 @@ export type SetNodes = (nodes: Node[] | ((nodes: GraphNode[]) => Node[])) => voi
 
 export type SetEdges = (edges: Edge[] | ((edges: GraphEdge[]) => Edge[])) => void
 
-export type AddNodes = (nodes: Node[] | ((nodes: GraphNode[]) => Node[])) => void
+export type AddNodes = (nodes: Node | Node[] | ((nodes: GraphNode[]) => Node | Node[])) => void
 
 export type RemoveNodes = (
-  nodes: (Node[] | string[]) | ((nodes: GraphNode[]) => Node[] | string[]),
+  nodes: (string | Node) | (Node | string)[] | ((nodes: GraphNode[]) => (string | Node) | (Node | string)[]),
   removeConnectedEdges?: boolean,
+  removeChildren?: boolean,
 ) => void
 
-export type RemoveEdges = (edges: (Edge[] | string[]) | ((edges: GraphEdge[]) => Edge[] | string[])) => void
+export type RemoveEdges = (
+  edges: (string | Edge) | (Edge | string)[] | ((edges: GraphEdge[]) => (string | Edge) | (Edge | string)[]),
+) => void
 
-export type AddEdges = (edgesOrConnections: (Edge | Connection)[] | ((edges: GraphEdge[]) => (Edge | Connection)[])) => void
+export type AddEdges = (
+  edgesOrConnections:
+    | (Edge | Connection)
+    | (Edge | Connection)[]
+    | ((edges: GraphEdge[]) => (Edge | Connection) | (Edge | Connection)[]),
+) => void
 
-export type UpdateEdge = (oldEdge: GraphEdge, newConnection: Connection) => GraphEdge | false
+export type UpdateEdge = (oldEdge: GraphEdge, newConnection: Connection, shouldReplaceId?: boolean) => GraphEdge | false
 
 export type SetState = (
   state:
@@ -174,14 +182,14 @@ export type UpdateNodePosition = (dragItems: NodeDragItem[], changed: boolean, d
 
 export type UpdateNodeDimensions = (updates: UpdateNodeDimensionsParams[]) => void
 
-export type UpdateNodeInternals = (nodeIds: string[]) => void
+export type UpdateNodeInternals = (nodeIds?: string[]) => void
 
 export type FindNode = <Data = ElementData, CustomEvents extends Record<string, CustomEvent> = any>(
-  id: string,
+  id: string | undefined | null,
 ) => GraphNode<Data, CustomEvents> | undefined
 
 export type FindEdge = <Data = ElementData, CustomEvents extends Record<string, CustomEvent> = any>(
-  id: string,
+  id: string | undefined | null,
 ) => GraphEdge<Data, CustomEvents> | undefined
 
 export type GetIntersectingNodes = (
@@ -203,7 +211,7 @@ export interface Actions extends ViewportFunctions {
   addNodes: AddNodes
   /** parses edges and adds to state */
   addEdges: AddEdges
-  /** remove nodes (and possibly connected edges) from state */
+  /** remove nodes (and possibly connected edges and children) from state */
   removeNodes: RemoveNodes
   /** remove edges from state */
   removeEdges: RemoveEdges
@@ -236,19 +244,26 @@ export interface Actions extends ViewportFunctions {
   /** apply translate extent to d3 */
   setTranslateExtent: (translateExtent: CoordinateExtent) => void
   /** apply extent to nodes */
-  setNodeExtent: (nodeExtent: CoordinateExtent) => void
+  setNodeExtent: (nodeExtent: CoordinateExtent | CoordinateExtentRange) => void
   /** enable/disable node interaction (dragging, selecting etc) */
   setInteractive: (isInteractive: boolean) => void
   /** set new state */
   setState: SetState
   /** return an object of graph values (elements, viewport transform) for storage and re-loading a graph */
   toObject: () => FlowExportObject
+  /** load graph from export obj */
+  fromObject: (obj: FlowExportObject) => void
   /** force update node internal data, if handle bounds are incorrect, you might want to use this */
   updateNodeInternals: UpdateNodeInternals
   /** start a connection */
-  startConnection: (startHandle: StartHandle, position?: XYPosition, event?: MouseEvent | TouchEvent, isClick?: boolean) => void
+  startConnection: (
+    startHandle: ConnectingHandle,
+    position?: XYPosition,
+    event?: MouseEvent | TouchEvent,
+    isClick?: boolean,
+  ) => void
   /** update connection position */
-  updateConnection: (position: XYPosition, status?: ConnectionStatus | null) => void
+  updateConnection: (position: XYPosition, result?: ConnectingHandle | null, status?: ConnectionStatus | null) => void
   /** end (or cancel) a connection */
   endConnection: (event?: MouseEvent | TouchEvent, isClick?: boolean) => void
 
@@ -261,8 +276,14 @@ export interface Actions extends ViewportFunctions {
   getIntersectingNodes: GetIntersectingNodes
   /** check if a node is intersecting with a defined area */
   isNodeIntersecting: IsNodeIntersecting
-  /** pan the viewport */
-  panBy: (delta: XYPosition) => void
+  /** get a node's incomers */
+  getIncomers: (nodeOrId: Node | string) => GraphNode[]
+  /** get a node's outgoers */
+  getOutgoers: (nodeOrId: Node | string) => GraphNode[]
+  /** get a node's connected edges */
+  getConnectedEdges: (nodesOrId: Node[] | string) => GraphEdge[]
+  /** pan the viewport; return indicates if a transform has happened or not */
+  panBy: (delta: XYPosition) => boolean
 
   /** reset state to defaults */
   $reset: () => void
@@ -294,6 +315,8 @@ export interface Getters {
   getSelectedEdges: GraphEdge[]
   /** returns all nodes that are initialized, i.e. they have actual dimensions */
   getNodesInitialized: GraphNode[]
+  /** returns a boolean flag whether all current nodes are initialized */
+  areNodesInitialized: boolean
 }
 
 export type ComputedGetters = {
@@ -303,6 +326,8 @@ export type ComputedGetters = {
 export type VueFlowStore = {
   readonly id: string
   readonly emits: FlowHooksEmit
+  /** current vue flow version you're using */
+  readonly vueFlowVersion: string
 } & FlowHooksOn &
   ToRefs<State> &
   Readonly<ComputedGetters> &

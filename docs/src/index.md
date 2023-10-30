@@ -5,16 +5,10 @@ layout: home
 
 <Home />
 
-<Suspense>
-  <Banner />
-</Suspense>
+<Banner />
 
 <Features />
 
-<XyzTransition appear-visible xyz="fade down ease-out-back">
-    <Acknowledgement />
-</XyzTransition>
+<Showcase />
 
-<XyzTransition appear-visible xyz="fade down ease-out-back">
-    <Team />
-</XyzTransition>
+<Acknowledgement />

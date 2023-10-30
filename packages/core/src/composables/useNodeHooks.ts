@@ -1,18 +1,21 @@
 import type { GraphNode, NodeEventsEmit, NodeEventsOn, VueFlowStore } from '~/types'
+import { createExtendedEventHook } from '~/utils'
 
-const createNodeHooks = () => ({
-  doubleClick: createEventHook(),
-  click: createEventHook(),
-  mouseEnter: createEventHook(),
-  mouseMove: createEventHook(),
-  mouseLeave: createEventHook(),
-  contextMenu: createEventHook(),
-  dragStart: createEventHook(),
-  drag: createEventHook(),
-  dragStop: createEventHook(),
-})
+function createNodeHooks() {
+  return {
+    doubleClick: createExtendedEventHook(),
+    click: createExtendedEventHook(),
+    mouseEnter: createExtendedEventHook(),
+    mouseMove: createExtendedEventHook(),
+    mouseLeave: createExtendedEventHook(),
+    contextMenu: createExtendedEventHook(),
+    dragStart: createExtendedEventHook(),
+    drag: createExtendedEventHook(),
+    dragStop: createExtendedEventHook(),
+  }
+}
 
-export default function useNodeHooks(node: GraphNode, emits: VueFlowStore['emits']): { emit: NodeEventsEmit; on: NodeEventsOn } {
+export function useNodeHooks(node: GraphNode, emits: VueFlowStore['emits']): { emit: NodeEventsEmit; on: NodeEventsOn } {
   const nodeHooks = createNodeHooks()
 
   nodeHooks.doubleClick.on((event) => {

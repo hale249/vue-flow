@@ -1,26 +1,27 @@
 <script setup>
-import { Panel, PanelPosition, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
+import { Panel, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
 import { nextTick, ref } from 'vue'
 import { getElements } from './utils.js'
 
 const { nodes, edges } = getElements(15, 15)
+
 const elements = ref([...nodes, ...edges])
 
-const { onPaneReady, dimensions, onNodeClick, getEdges, fitView } = useVueFlow()
+const { onPaneReady, dimensions, fitView } = useVueFlow()
 
-onPaneReady((i) => {
-  i.fitView({
-    padding: 0.2,
-  })
+onPaneReady(({ fitView, getElements }) => {
+  fitView({ padding: 0.2 })
 
-  console.log(i.getElements.value)
+  console.log(getElements.value)
 })
 
-const toggleClass = () => elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+function toggleClass() {
+  return elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+}
 
-const updatePos = () => {
+function updatePos() {
   elements.value.forEach((el) => {
     if (isNode(el)) {
       el.position = {
@@ -42,7 +43,7 @@ const updatePos = () => {
 
     <Background />
 
-    <Panel :position="PanelPosition.TopRight">
+    <Panel position="top-right">
       <button style="margin-right: 5px" @click="updatePos">update positions</button>
       <button @click="toggleClass">toggle class</button>
     </Panel>

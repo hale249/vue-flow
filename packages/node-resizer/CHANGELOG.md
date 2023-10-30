@@ -1,5 +1,47 @@
 # @vue-flow/node-resizer
 
+## 1.3.5
+
+### Patch Changes
+
+- [#1113](https://github.com/bcakmakoglu/vue-flow/pull/1113) [`1f3c85a6`](https://github.com/bcakmakoglu/vue-flow/commit/1f3c85a67670535ad4958ed3f33529db75bec8f1) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Wait for node dimensions to be initialised before enforcing min/max height/width on nodes
+
+## 1.3.4
+
+### Patch Changes
+
+- [#1087](https://github.com/bcakmakoglu/vue-flow/pull/1087) [`48bcb29c`](https://github.com/bcakmakoglu/vue-flow/commit/48bcb29c88ed24409fbca17be028c1b5b2c4ee90) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Enforce minHeight, minWidth and maxHeight, maxWidth by updating node styles whenever these props change (if an update is necessary)
+
+## 1.3.3
+
+### Patch Changes
+
+- [#1015](https://github.com/bcakmakoglu/vue-flow/pull/1015) [`f4d8d540`](https://github.com/bcakmakoglu/vue-flow/commit/f4d8d540ba57666b0bb05f8cad7eca794b6dc884) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Use correct prop names for class and style
+
+## 1.3.2
+
+### Patch Changes
+
+- [#890](https://github.com/bcakmakoglu/vue-flow/pull/890) [`9065311`](https://github.com/bcakmakoglu/vue-flow/commit/9065311970952b910a2a154e8a0871fa095a71f6) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Render nothing when `isVisible` prop is set to false
+
+## 1.3.1
+
+### Patch Changes
+
+- [#865](https://github.com/bcakmakoglu/vue-flow/pull/865) [`9ce7bdc4`](https://github.com/bcakmakoglu/vue-flow/commit/9ce7bdc4908dda4dea299e5f469b252ac20a12ab) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `exports` field to package.json
+
+## 1.3.0
+
+### Minor Changes
+
+- [#739](https://github.com/bcakmakoglu/vue-flow/pull/739) [`9e48211d`](https://github.com/bcakmakoglu/vue-flow/commit/9e48211de7a3ca34ecac2dbd2e0d580cd839e9c0) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add maxHeight and maxWidth props to node resizer
+
+## 1.2.2
+
+### Patch Changes
+
+- [#716](https://github.com/bcakmakoglu/vue-flow/pull/716) [`1685827d`](https://github.com/bcakmakoglu/vue-flow/commit/1685827d0ea1dc9864f95a1b3a54fbc43a296e5d) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Fix umd pkg names and use the correct vue flow core umd pkg name in plugins
+
 ## 1.2.1
 
 ### Patch Changes

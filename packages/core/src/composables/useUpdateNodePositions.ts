@@ -1,7 +1,10 @@
+import { useVueFlow } from './useVueFlow'
 import type { NodeDragItem, XYPosition } from '~/types'
+import { calcNextPosition } from '~/utils'
 
-function useUpdateNodePositions() {
-  const { getSelectedNodes, nodeExtent, updateNodePositions, findNode, snapGrid, snapToGrid, nodesDraggable } = useVueFlow()
+export function useUpdateNodePositions() {
+  const { getSelectedNodes, nodeExtent, updateNodePositions, findNode, snapGrid, snapToGrid, nodesDraggable, emits } =
+    useVueFlow()
 
   return (positionDiff: XYPosition, isShiftPressed = false) => {
     // by default a node moves 5px on each key press, or 20px if shift is pressed
@@ -21,6 +24,7 @@ function useUpdateNodePositions() {
         const { computedPosition } = calcNextPosition(
           n,
           nextPosition,
+          emits.error,
           nodeExtent.value,
           n.parentNode ? findNode(n.parentNode) : undefined,
         )
@@ -37,5 +41,3 @@ function useUpdateNodePositions() {
     updateNodePositions(nodeUpdates, true, false)
   }
 }
-
-export default useUpdateNodePositions

@@ -1,15 +1,15 @@
 <script setup>
-import { Panel, PanelPosition, useVueFlow } from '@vue-flow/core'
+import { Panel, useVueFlow } from '@vue-flow/core'
 
 const flowKey = 'example-flow'
 
 const { nodes, addNodes, setNodes, setEdges, dimensions, setTransform, toObject } = useVueFlow()
 
-const onSave = () => {
+function onSave() {
   localStorage.setItem(flowKey, JSON.stringify(toObject()))
 }
 
-const onRestore = () => {
+function onRestore() {
   const flow = JSON.parse(localStorage.getItem(flowKey))
 
   if (flow) {
@@ -20,7 +20,7 @@ const onRestore = () => {
   }
 }
 
-const onAdd = () => {
+function onAdd() {
   const id = nodes.value.length + 1
 
   const newNode = {
@@ -34,7 +34,7 @@ const onAdd = () => {
 </script>
 
 <template>
-  <Panel :position="PanelPosition.TopRight" class="save-restore-controls">
+  <Panel position="top-right" class="save-restore-controls">
     <button style="background-color: #33a6b8" @click="onSave">save</button>
     <button style="background-color: #113285" @click="onRestore">restore</button>
     <button style="background-color: #6f3381" @click="onAdd">add node</button>

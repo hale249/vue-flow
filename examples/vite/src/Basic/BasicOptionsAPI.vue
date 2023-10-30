@@ -50,7 +50,7 @@ export default defineComponent({
       this.instance = instance as any
     },
     onConnect(params: FlowEvents['connect']) {
-      this.instance?.addEdges([params])
+      this.instance?.addEdges(params)
     },
   },
 })
@@ -64,6 +64,7 @@ export default defineComponent({
     :min-zoom="0.2"
     :max-zoom="4"
     :zoom-on-scroll="false"
+    fit-view-on-init
     @connect="onConnect"
     @pane-ready="onPaneReady"
     @node-drag-stop="onNodeDragStop"

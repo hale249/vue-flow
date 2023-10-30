@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { CSSProperties } from 'vue'
 import { ARIA_EDGE_DESC_KEY, ARIA_LIVE_MESSAGE, ARIA_NODE_DESC_KEY } from '../../utils/a11y'
+import { useVueFlow } from '../../composables'
 
 const { id, disableKeyboardA11y, ariaLiveMessage } = useVueFlow()
 
@@ -19,6 +20,7 @@ const ariaLiveStyle: CSSProperties = {
 
 <script lang="ts">
 export default {
+  name: 'A11yDescriptions',
   compatConfig: { MODE: 3 },
 }
 </script>

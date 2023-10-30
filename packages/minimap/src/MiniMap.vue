@@ -4,6 +4,7 @@ import { Panel, getBoundsofRects, getConnectedEdges, getRectOfNodes, useVueFlow 
 import { zoom, zoomIdentity } from 'd3-zoom'
 import type { D3ZoomEvent } from 'd3-zoom'
 import { pointer, select } from 'd3-selection'
+import { computed, provide, ref, useAttrs, useSlots, watchEffect } from 'vue'
 import type { MiniMapNodeFunc, MiniMapProps, ShapeRendering } from './types'
 import MiniMapNode from './MiniMapNode'
 import { MiniMapSlots } from './types'
@@ -23,6 +24,9 @@ const {
   pannable = false,
   zoomable = false,
   ariaLabel = 'Vue Flow mini map',
+  inversePan = false,
+  zoomStep = 10,
+  offsetScale = 5,
 } = defineProps<MiniMapProps>()
 
 const emit = defineEmits(['click', 'nodeClick', 'nodeDblclick', 'nodeMouseenter', 'nodeMousemove', 'nodeMouseleave'])
@@ -75,7 +79,7 @@ const viewScale = computed(() => {
 const viewBox = computed(() => {
   const viewWidth = viewScale.value * elementWidth.value
   const viewHeight = viewScale.value * elementHeight.value
-  const offset = 5 * viewScale.value
+  const offset = offsetScale * viewScale.value
 
   return {
     offset,
@@ -87,7 +91,9 @@ const viewBox = computed(() => {
 })
 
 const d = computed(() => {
-  if (!viewBox.value.x || !viewBox.value.y) return ''
+  if (!viewBox.value.x || !viewBox.value.y) {
+    return ''
+  }
 
   return `
     M${viewBox.value.x - viewBox.value.offset},${viewBox.value.y - viewBox.value.offset}
@@ -111,7 +117,9 @@ watchEffect(
         }
 
         const pinchDelta =
-          -event.sourceEvent.deltaY * (event.sourceEvent.deltaMode === 1 ? 0.05 : event.sourceEvent.deltaMode ? 1 : 0.002) * 10
+          -event.sourceEvent.deltaY *
+          (event.sourceEvent.deltaMode === 1 ? 0.05 : event.sourceEvent.deltaMode ? 1 : 0.002) *
+          zoomStep
         const zoom = viewport.value.zoom * 2 ** pinchDelta
 
         d3Zoom.value.scaleTo(d3Selection.value, zoom)
@@ -122,9 +130,11 @@ watchEffect(
           return
         }
 
+        const moveScale = viewScale.value * Math.max(1, viewport.value.zoom) * (inversePan ? -1 : 1)
+
         const position = {
-          x: viewport.value.x - event.sourceEvent.movementX * viewScale.value * Math.max(1, viewport.value.zoom),
-          y: viewport.value.y - event.sourceEvent.movementY * viewScale.value * Math.max(1, viewport.value.zoom),
+          x: viewport.value.x - event.sourceEvent.movementX * moveScale,
+          y: viewport.value.y - event.sourceEvent.movementY * moveScale,
         }
 
         const extent: CoordinateExtent = [
@@ -152,36 +162,36 @@ watchEffect(
   { flush: 'post' },
 )
 
-const onSvgClick = (event: MouseEvent) => {
+function onSvgClick(event: MouseEvent) {
   const [x, y] = pointer(event)
   emit('click', { event, position: { x, y } })
 }
 
-const onNodeClick = (event: MouseEvent, node: GraphNode) => {
+function onNodeClick(event: MouseEvent, node: GraphNode) {
   const param = { event, node, connectedEdges: getConnectedEdges([node], edges.value) }
   emits.miniMapNodeClick(param)
   emit('nodeClick', param)
 }
 
-const onNodeDblClick = (event: MouseEvent, node: GraphNode) => {
+function onNodeDblClick(event: MouseEvent, node: GraphNode) {
   const param = { event, node, connectedEdges: getConnectedEdges([node], edges.value) }
   emits.miniMapNodeDoubleClick(param)
   emit('nodeDblclick', param)
 }
 
-const onNodeMouseEnter = (event: MouseEvent, node: GraphNode) => {
+function onNodeMouseEnter(event: MouseEvent, node: GraphNode) {
   const param = { event, node, connectedEdges: getConnectedEdges([node], edges.value) }
   emits.miniMapNodeMouseEnter(param)
   emit('nodeMouseenter', param)
 }
 
-const onNodeMouseMove = (event: MouseEvent, node: GraphNode) => {
+function onNodeMouseMove(event: MouseEvent, node: GraphNode) {
   const param = { event, node, connectedEdges: getConnectedEdges([node], edges.value) }
   emits.miniMapNodeMouseMove(param)
   emit('nodeMousemove', param)
 }
 
-const onNodeMouseLeave = (event: MouseEvent, node: GraphNode) => {
+function onNodeMouseLeave(event: MouseEvent, node: GraphNode) {
   const param = { event, node, connectedEdges: getConnectedEdges([node], edges.value) }
   emits.miniMapNodeMouseLeave(param)
   emit('nodeMouseleave', param)
@@ -214,6 +224,8 @@ export default {
         :key="node.id"
         :position="node.computedPosition"
         :dimensions="node.dimensions"
+        :selected="node.selected"
+        :dragging="node.dragging"
         :style="node.style"
         :class="nodeClassNameFunc(node)"
         :color="nodeColorFunc(node)"

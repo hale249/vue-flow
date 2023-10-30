@@ -1,5 +1,23 @@
 # @vue-flow/node-toolbar
 
+## 1.1.0
+
+### Minor Changes
+
+- [#953](https://github.com/bcakmakoglu/vue-flow/pull/953) [`bda15cfa`](https://github.com/bcakmakoglu/vue-flow/commit/bda15cfa790ae479e95827b940c0043448f7f89c) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `align` prop to node toolbar
+
+## 1.0.7
+
+### Patch Changes
+
+- [#865](https://github.com/bcakmakoglu/vue-flow/pull/865) [`9ce7bdc4`](https://github.com/bcakmakoglu/vue-flow/commit/9ce7bdc4908dda4dea299e5f469b252ac20a12ab) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Add `exports` field to package.json
+
+## 1.0.6
+
+### Patch Changes
+
+- [#716](https://github.com/bcakmakoglu/vue-flow/pull/716) [`1685827d`](https://github.com/bcakmakoglu/vue-flow/commit/1685827d0ea1dc9864f95a1b3a54fbc43a296e5d) Thanks [@bcakmakoglu](https://github.com/bcakmakoglu)! - Fix umd pkg names and use the correct vue flow core umd pkg name in plugins
+
 ## 1.0.5
 
 ### Patch Changes

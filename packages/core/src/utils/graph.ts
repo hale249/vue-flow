@@ -1,4 +1,5 @@
-import { isString } from '@vueuse/core'
+import { markRaw } from 'vue'
+import { isDef, isString, warn } from '.'
 import type {
   Actions,
   Box,
@@ -8,8 +9,10 @@ import type {
   Dimensions,
   Edge,
   EdgeMarkerType,
+  Element,
   ElementData,
   Elements,
+  FlowElements,
   GraphEdge,
   GraphNode,
   MaybeElement,
@@ -19,12 +22,15 @@ import type {
   XYPosition,
   XYZPosition,
 } from '~/types'
+import { useWindow } from '~/composables'
 
-export const nodeToRect = (node: GraphNode): Rect => ({
-  ...(node.computedPosition || { x: 0, y: 0 }),
-  width: node.dimensions.width || 0,
-  height: node.dimensions.height || 0,
-})
+export function nodeToRect(node: GraphNode): Rect {
+  return {
+    ...(node.computedPosition || { x: 0, y: 0 }),
+    width: node.dimensions.width || 0,
+    height: node.dimensions.height || 0,
+  }
+}
 
 export function getOverlappingArea(rectA: Rect, rectB: Rect) {
   const xOverlap = Math.max(0, Math.min(rectA.x + rectA.width, rectB.x + rectB.width) - Math.max(rectA.x, rectB.x))
@@ -33,45 +39,65 @@ export function getOverlappingArea(rectA: Rect, rectB: Rect) {
   return Math.ceil(xOverlap * yOverlap)
 }
 
-export const getDimensions = (node: HTMLElement): Dimensions => ({
-  width: node.offsetWidth,
-  height: node.offsetHeight,
-})
+export function getDimensions(node: HTMLElement): Dimensions {
+  return {
+    width: node.offsetWidth,
+    height: node.offsetHeight,
+  }
+}
 
-export const clamp = (val: number, min = 0, max = 1) => Math.min(Math.max(val, min), max)
+export function clamp(val: number, min = 0, max = 1) {
+  return Math.min(Math.max(val, min), max)
+}
 
-export const clampPosition = (position: XYPosition, extent: CoordinateExtent): XYPosition => ({
-  x: clamp(position.x, extent[0][0], extent[1][0]),
-  y: clamp(position.y, extent[0][1], extent[1][1]),
-})
+export function clampPosition(position: XYPosition, extent: CoordinateExtent): XYPosition {
+  return {
+    x: clamp(position.x, extent[0][0], extent[1][0]),
+    y: clamp(position.y, extent[0][1], extent[1][1]),
+  }
+}
 
 export function getHostForElement(element: HTMLElement): Document {
   const doc = element.getRootNode() as Document
   const window = useWindow()
 
-  if ('elementFromPoint' in doc) return doc
-  else return window.document
+  if ('elementFromPoint' in doc) {
+    return doc
+  } else {
+    return window.document
+  }
 }
 
-export const isEdge = <Data = ElementData>(element: MaybeElement): element is Edge<Data> =>
-  element && 'id' in element && 'source' in element && 'target' in element
+// todo: refactor generic to use MaybeElement
+export function isEdge<Data = ElementData>(element: MaybeElement): element is Edge<Data> {
+  return element && typeof element === 'object' && 'id' in element && 'source' in element && 'target' in element
+}
 
-export const isGraphEdge = <Data = ElementData>(element: MaybeElement): element is GraphEdge<Data> =>
-  isEdge(element) && 'sourceNode' in element && 'targetNode' in element
+// todo: refactor generic to use MaybeElement
+export function isGraphEdge<Data = ElementData>(element: MaybeElement): element is GraphEdge<Data> {
+  return isEdge(element) && 'sourceNode' in element && 'targetNode' in element
+}
 
-export const isNode = <Data = ElementData>(element: MaybeElement): element is Node<Data> =>
-  element && 'id' in element && !isEdge(element)
+// todo: refactor generic to use MaybeElement
+export function isNode<Data = ElementData>(element: MaybeElement): element is Node<Data> {
+  return element && typeof element === 'object' && 'id' in element && 'position' in element && !isEdge(element)
+}
 
-export const isGraphNode = <Data = ElementData>(element: MaybeElement): element is GraphNode<Data> =>
-  isNode(element) && 'computedPosition' in element
+// todo: refactor generic to use MaybeElement
+export function isGraphNode<Data = ElementData>(element: MaybeElement): element is GraphNode<Data> {
+  return isNode(element) && 'computedPosition' in element
+}
 
-export const isRect = (obj: any): obj is Rect => !!obj.width && !!obj.height && !!obj.x && !!obj.y
+export function isRect(obj: any): obj is Rect {
+  return !!obj.width && !!obj.height && !!obj.x && !!obj.y
+}
 
-export function parseNode(node: Node, defaults?: Partial<GraphNode>): GraphNode {
-  let defaultValues = defaults
+export function parseNode(node: Node, defaults: Partial<GraphNode> = {}): GraphNode {
+  let initialState = defaults
+
   if (!isGraphNode(node)) {
-    defaultValues = {
-      type: node.type ?? 'default',
+    initialState = {
+      type: node.type ?? defaults.type ?? 'default',
       dimensions: markRaw({
         width: 0,
         height: 0,
@@ -98,53 +124,99 @@ export function parseNode(node: Node, defaults?: Partial<GraphNode>): GraphNode 
     }
   }
 
-  return {
-    ...defaultValues,
-    ...(node as GraphNode),
-    id: node.id.toString(),
-  }
+  return Object.assign({}, initialState, node, { id: node.id.toString() }) as GraphNode
 }
 
-export function parseEdge(edge: Edge, defaults?: Partial<GraphEdge>): GraphEdge {
-  const events = isDef(edge.events) ? edge.events : defaults?.events && isDef(defaults?.events) ? defaults?.events : {}
-  const data = isDef(edge.data) ? edge.data : defaults?.data && isDef(defaults?.data) ? defaults?.data : {}
+export function parseEdge(edge: Edge, defaults: Partial<GraphEdge> = {}): GraphEdge {
+  const events = isDef(edge.events) ? edge.events : defaults.events && isDef(defaults.events) ? defaults.events : {}
+  const data = isDef(edge.data) ? edge.data : defaults.data && isDef(defaults.data) ? defaults.data : {}
 
   defaults = !isGraphEdge(edge)
     ? ({
         ...defaults,
-        sourceHandle: (edge.sourceHandle ? edge.sourceHandle.toString() : undefined) || defaults?.sourceHandle,
-        targetHandle: (edge.targetHandle ? edge.targetHandle.toString() : undefined) || defaults?.targetHandle,
-        type: edge.type ?? defaults?.type ?? 'default',
-        source: edge.source.toString() || defaults?.source,
-        target: edge.target.toString() || defaults?.target,
-        updatable: edge.updatable ?? defaults?.updatable,
-        selectable: edge.selectable ?? defaults?.selectable,
-        focusable: edge.focusable ?? defaults?.focusable,
+        sourceHandle: (edge.sourceHandle ? edge.sourceHandle.toString() : undefined) || defaults.sourceHandle,
+        targetHandle: (edge.targetHandle ? edge.targetHandle.toString() : undefined) || defaults.targetHandle,
+        type: edge.type ?? defaults.type ?? 'default',
+        source: edge.source.toString() || defaults.source,
+        target: edge.target.toString() || defaults.target,
+        updatable: edge.updatable ?? defaults.updatable,
+        selectable: edge.selectable ?? defaults.selectable,
+        focusable: edge.focusable ?? defaults.focusable,
         data,
         events: markRaw(events),
-        label: (edge.label && !isString(edge.label) ? markRaw(edge.label) : edge.label) || defaults?.label,
-        interactionWidth: edge.interactionWidth || defaults?.interactionWidth,
+        label: (edge.label && !isString(edge.label) ? markRaw(edge.label) : edge.label) || defaults.label,
+        interactionWidth: edge.interactionWidth || defaults.interactionWidth,
       } as GraphEdge)
     : defaults
 
-  return Object.assign({ id: edge.id.toString() }, edge, defaults) as GraphEdge
+  return Object.assign({}, defaults, edge, { id: edge.id.toString() }) as GraphEdge
 }
 
-const getConnectedElements = (node: GraphNode, elements: Elements, dir: 'source' | 'target') => {
-  if (!isNode(node)) return []
+function getConnectedElements<T extends Node = Node>(
+  nodeOrId: Node | { id: string } | string,
+  nodes: T[],
+  edges: Edge[],
+  dir: 'source' | 'target',
+): T[] {
+  const id = isString(nodeOrId) ? nodeOrId : nodeOrId.id
+
+  const connectedIds = new Set()
+
   const origin = dir === 'source' ? 'target' : 'source'
-  const ids = elements.filter((e) => isEdge(e) && e[origin] === node.id).map((e) => isEdge(e) && e[dir])
-  return elements.filter((e) => ids.includes(e.id))
+
+  edges.forEach((edge) => {
+    if (edge[origin] === id) {
+      connectedIds.add(edge[dir])
+    }
+  })
+
+  return nodes.filter((n) => connectedIds.has(n.id))
 }
-export const getOutgoers = (node: GraphNode, elements: Elements) => getConnectedElements(node, elements, 'target')
 
-export const getIncomers = (node: GraphNode, elements: Elements) => getConnectedElements(node, elements, 'source')
+export function getOutgoers<N extends Node>(nodeOrId: Node | { id: string } | string, nodes: N[], edges: Edge[]): N[]
+export function getOutgoers<T extends Elements>(
+  nodeOrId: Node | { id: string } | string,
+  elements: T,
+): T extends FlowElements ? GraphNode[] : Node[]
+export function getOutgoers(...args: any[]) {
+  if (args.length === 3) {
+    const [nodeOrId, nodes, edges] = args
+    return getConnectedElements(nodeOrId, nodes, edges, 'target')
+  }
 
-export const getEdgeId = ({ source, sourceHandle, target, targetHandle }: Connection) =>
-  `vueflow__edge-${source}${sourceHandle ?? ''}-${target}${targetHandle ?? ''}`
+  const [nodeOrId, elements] = args
+  const node: Node = isString(nodeOrId) ? { id: nodeOrId } : nodeOrId
 
-export const connectionExists = (edge: Edge | Connection, elements: Elements) =>
-  elements.some(
+  const outgoers = elements.filter((el: Element) => isEdge(el) && el.source === node.id)
+
+  return outgoers.map((edge: Edge) => elements.find((el: Element) => isNode(el) && el.id === edge.target))
+}
+
+export function getIncomers<N extends Node>(nodeOrId: Node | { id: string } | string, nodes: N[], edges: Edge[]): N[]
+export function getIncomers<T extends Elements>(
+  nodeOrId: Node | { id: string } | string,
+  elements: T,
+): T extends FlowElements ? GraphNode[] : Node[]
+export function getIncomers(...args: any[]) {
+  if (args.length === 3) {
+    const [nodeOrId, nodes, edges] = args
+    return getConnectedElements(nodeOrId, nodes, edges, 'source')
+  }
+
+  const [nodeOrId, elements] = args
+  const node: Node = isString(nodeOrId) ? { id: nodeOrId } : nodeOrId
+
+  const incomers = elements.filter((el: Element) => isEdge(el) && el.target === node.id)
+
+  return incomers.map((edge: Edge) => elements.find((el: Element) => isNode(el) && el.id === edge.source))
+}
+
+export function getEdgeId({ source, sourceHandle, target, targetHandle }: Connection) {
+  return `vueflow__edge-${source}${sourceHandle ?? ''}-${target}${targetHandle ?? ''}`
+}
+
+export function connectionExists(edge: Edge | Connection, elements: Elements) {
+  return elements.some(
     (el) =>
       isEdge(el) &&
       el.source === edge.source &&
@@ -152,6 +224,7 @@ export const connectionExists = (edge: Edge | Connection, elements: Elements) =>
       (el.sourceHandle === edge.sourceHandle || (!el.sourceHandle && !edge.sourceHandle)) &&
       (el.targetHandle === edge.targetHandle || (!el.targetHandle && !edge.targetHandle)),
   )
+}
 
 /**
  * @deprecated Use store instance and call `addEdges` with template-ref or the one received by `onPaneReady` instead
@@ -166,6 +239,7 @@ export function addEdge(edgeParams: Edge | Connection, elements: Elements, defau
   }
 
   let edge
+
   if (isEdge(edgeParams)) {
     edge = { ...edgeParams }
   } else {
@@ -174,9 +248,15 @@ export function addEdge(edgeParams: Edge | Connection, elements: Elements, defau
       id: getEdgeId(edgeParams),
     } as Edge
   }
+
   edge = parseEdge(edge, defaults)
-  if (connectionExists(edge, elements)) return elements
+
+  if (connectionExists(edge, elements)) {
+    return elements
+  }
+
   elements.push(edge)
+
   return elements
 }
 
@@ -223,7 +303,7 @@ export function pointToRendererPoint(
   { x, y }: XYPosition,
   { x: tx, y: ty, zoom: tScale }: ViewportTransform,
   snapToGrid: boolean,
-  [snapX, snapY]: [number, number],
+  [snapX, snapY]: [snapX: number, snapY: number],
 ): XYPosition {
   const position: XYPosition = {
     x: (x - tx) / tScale,
@@ -240,28 +320,37 @@ export function pointToRendererPoint(
   return position
 }
 
-const getBoundsOfBoxes = (box1: Box, box2: Box): Box => ({
-  x: Math.min(box1.x, box2.x),
-  y: Math.min(box1.y, box2.y),
-  x2: Math.max(box1.x2, box2.x2),
-  y2: Math.max(box1.y2, box2.y2),
-})
+function getBoundsOfBoxes(box1: Box, box2: Box): Box {
+  return {
+    x: Math.min(box1.x, box2.x),
+    y: Math.min(box1.y, box2.y),
+    x2: Math.max(box1.x2, box2.x2),
+    y2: Math.max(box1.y2, box2.y2),
+  }
+}
 
-export const rectToBox = ({ x, y, width, height }: Rect): Box => ({
-  x,
-  y,
-  x2: x + width,
-  y2: y + height,
-})
+export function rectToBox({ x, y, width, height }: Rect): Box {
+  return {
+    x,
+    y,
+    x2: x + width,
+    y2: y + height,
+  }
+}
 
-export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
-  x,
-  y,
-  width: x2 - x,
-  height: y2 - y,
-})
+export function boxToRect({ x, y, x2, y2 }: Box): Rect {
+  return {
+    x,
+    y,
+    width: x2 - x,
+    height: y2 - y,
+  }
+}
 
-export const getBoundsofRects = (rect1: Rect, rect2: Rect) => boxToRect(getBoundsOfBoxes(rectToBox(rect1), rectToBox(rect2)))
+// todo: fix typo
+export function getBoundsofRects(rect1: Rect, rect2: Rect) {
+  return boxToRect(getBoundsOfBoxes(rectToBox(rect1), rectToBox(rect2)))
+}
 
 export function getRectOfNodes(nodes: GraphNode[]) {
   const box = nodes.reduce(
@@ -278,11 +367,6 @@ export function getRectOfNodes(nodes: GraphNode[]) {
 
   return boxToRect(box)
 }
-
-export const graphPosToZoomedPos = ({ x, y }: XYPosition, { x: tx, y: ty, zoom: tScale }: ViewportTransform): XYPosition => ({
-  x: x * tScale + tx,
-  y: y * tScale + ty,
-})
 
 export function getNodesInside(
   nodes: GraphNode[],
@@ -320,10 +404,36 @@ export function getNodesInside(
   })
 }
 
-export function getConnectedEdges(nodes: (Node | GraphNode)[], edges: GraphEdge[]) {
-  const nodeIds = nodes.map((node) => node.id)
+export function getConnectedEdges<E extends Edge>(nodesOrId: Node[] | string, edges: E[]) {
+  const nodeIds = new Set()
 
-  return edges.filter((edge) => nodeIds.includes(edge.source) || nodeIds.includes(edge.target))
+  if (isString(nodesOrId)) {
+    nodeIds.add(nodesOrId)
+  } else if (nodesOrId.length >= 1) {
+    nodesOrId.forEach((n) => nodeIds.add(n.id))
+  }
+
+  return edges.filter((edge) => nodeIds.has(edge.source) || nodeIds.has(edge.target))
+}
+
+export function getConnectedNodes<N extends Node | { id: string } | string>(nodes: N[], edges: Edge[]) {
+  const nodeIds = new Set()
+
+  nodes.forEach((node) => nodeIds.add(isString(node) ? node : node.id))
+
+  const connectedNodeIds = edges.reduce((acc, edge) => {
+    if (nodeIds.has(edge.source)) {
+      acc.add(edge.target)
+    }
+
+    if (nodeIds.has(edge.target)) {
+      acc.add(edge.source)
+    }
+
+    return acc
+  }, new Set())
+
+  return nodes.filter((node) => connectedNodeIds.has(isString(node) ? node : node.id))
 }
 
 export function getTransformForBounds(
@@ -359,20 +469,30 @@ export function getXYZPos(parentPos: XYZPosition, computedPosition: XYZPosition)
 }
 
 export function isParentSelected(node: GraphNode, findNode: Actions['findNode']): boolean {
-  if (!node.parentNode) return false
+  if (!node.parentNode) {
+    return false
+  }
 
   const parent = findNode(node.parentNode)
-  if (!parent) return false
+  if (!parent) {
+    return false
+  }
 
-  if (parent.selected) return true
+  if (parent.selected) {
+    return true
+  }
 
   return isParentSelected(parent, findNode)
 }
 
 export function getMarkerId(marker: EdgeMarkerType | undefined, vueFlowId?: string) {
-  if (typeof marker === 'undefined') return ''
+  if (typeof marker === 'undefined') {
+    return ''
+  }
 
-  if (typeof marker === 'string') return marker
+  if (typeof marker === 'string') {
+    return marker
+  }
 
   const idPrefix = vueFlowId ? `${vueFlowId}__` : ''
 

@@ -1,10 +1,11 @@
 <script setup>
-import { Panel, PanelPosition, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
+import { Panel, VueFlow, isNode, useVueFlow } from '@vue-flow/core'
 import { nextTick, ref } from 'vue'
 import { Background } from '@vue-flow/background'
 import { getElements } from './utils'
 
 const { nodes, edges } = getElements(15, 15)
+
 const elements = ref([...nodes, ...edges])
 
 const { onPaneReady, dimensions, fitView } = useVueFlow()
@@ -17,9 +18,11 @@ onPaneReady((i) => {
   console.log(i.getElements.value)
 })
 
-const toggleClass = () => elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+function toggleClass() {
+  return elements.value.forEach((el) => (el.class = el.class === 'light' ? 'dark' : 'light'))
+}
 
-const updatePos = () => {
+function updatePos() {
   elements.value.forEach((el) => {
     if (isNode(el)) {
       el.position = {
@@ -39,7 +42,7 @@ const updatePos = () => {
   <VueFlow v-model="elements" :min-zoom="0.1">
     <Background />
 
-    <Panel :position="PanelPosition.TopRight">
+    <Panel position="top-right">
       <button style="margin-right: 5px" @click="updatePos">update positions</button>
       <button @click="toggleClass">toggle class</button>
     </Panel>

@@ -12,13 +12,20 @@ export interface HandleElement extends XYPosition, Dimensions {
 
 export interface ConnectionHandle {
   id: string | null
-  type: HandleType
+  type: HandleType | null
   nodeId: string
   x: number
   y: number
 }
 
-export interface StartHandle {
+export interface ValidHandleResult {
+  endHandle: ConnectingHandle | null
+  handleDomNode: Element | null
+  isValid: boolean
+  connection: Connection
+}
+
+export interface ConnectingHandle {
   nodeId: string
   type: HandleType
   handleId: string | null
@@ -39,7 +46,7 @@ export type HandleConnectableFunc = (node: GraphNode, connectedEdges: GraphEdge[
  *
  * if set to single and the handle already has more than one connection, it will act the same as setting it to false
  */
-export type HandleConnectable = boolean | 'single' | HandleConnectableFunc
+export type HandleConnectable = boolean | number | 'single' | HandleConnectableFunc
 
 export interface HandleProps {
   /** Unique id of handle element */
@@ -50,6 +57,10 @@ export interface HandleProps {
   position?: Position
   /** A valid connection func {@link ValidConnectionFunc} */
   isValidConnection?: ValidConnectionFunc
-  /** Enable/disable connecting to handle */
+  /** Enable/disable connecting to handle altogether */
   connectable?: HandleConnectable
+  /** Can this handle be used to *start* a connection */
+  connectableStart?: boolean
+  /** Can this handle be used to *end* a connection */
+  connectableEnd?: boolean
 }
